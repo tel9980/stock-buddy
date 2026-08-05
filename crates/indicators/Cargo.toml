@@ -1,0 +1,8 @@
+[package]
+name = "indicators"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+appcore = { workspace = true }
+serde = { workspace = true }

@@ -1,0 +1,31 @@
+[package]
+name = "api"
+version.workspace = true
+edition.workspace = true
+
+[[bin]]
+name = "stock-assister"
+path = "src/main.rs"
+
+[dependencies]
+appcore = { workspace = true }
+fetcher = { workspace = true }
+indicators = { path = "../indicators" }
+analyzer = { workspace = true }
+storage = { workspace = true }
+scheduler = { workspace = true }
+
+axum = { workspace = true }
+tower = { workspace = true }
+tower-http = { workspace = true }
+tokio = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+chrono = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+tracing-appender = { workspace = true }
+anyhow = { workspace = true }
+dotenvy = { workspace = true }
+futures = { workspace = true }
+tokio-stream = "0.1"

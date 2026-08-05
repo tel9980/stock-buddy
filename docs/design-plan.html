@@ -1,0 +1,1158 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Stock-Assister 项目设计方案</title>
+<style>
+:root {
+  --primary: #e8804e;
+  --primary-light: #f4a574;
+  --primary-dark: #c56633;
+  --accent: #1a1a2e;
+  --bg: #0f0f17;
+  --surface: #1a1a2e;
+  --surface-light: #22223a;
+  --text: #e0e0e8;
+  --text-dim: #9090a8;
+  --text-muted: #606078;
+  --success: #4caf50;
+  --danger: #f44336;
+  --warning: #ff9800;
+  --info: #2196f3;
+  --border: #2a2a42;
+  --radius: 10px;
+  --shadow: 0 4px 20px rgba(0,0,0,0.3);
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.7;
+  -webkit-font-smoothing: antialiased;
+}
+
+.container { max-width: 1100px; margin: 0 auto; padding: 0 24px; }
+
+/* Header */
+.hero {
+  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+  padding: 60px 0 50px;
+  text-align: center;
+  border-bottom: 3px solid var(--primary);
+}
+.hero h1 {
+  font-size: 2.6rem;
+  font-weight: 800;
+  background: linear-gradient(135deg, var(--primary-light), var(--primary));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  margin-bottom: 12px;
+}
+.hero .subtitle { font-size: 1.15rem; color: var(--text-dim); }
+.hero .meta {
+  margin-top: 20px;
+  display: flex;
+  justify-content: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.hero .meta span {
+  background: rgba(232,128,78,0.15);
+  border: 1px solid rgba(232,128,78,0.3);
+  padding: 6px 16px;
+  border-radius: 20px;
+  font-size: 0.85rem;
+  color: var(--primary-light);
+}
+
+/* Section */
+section { padding: 48px 0; border-bottom: 1px solid var(--border); }
+section h2 {
+  font-size: 1.7rem;
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+section h2 .num {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px; height: 36px;
+  background: var(--primary);
+  color: #fff;
+  border-radius: 50%;
+  font-size: 1rem;
+  font-weight: 700;
+}
+section h3 {
+  font-size: 1.2rem;
+  font-weight: 600;
+  color: var(--primary-light);
+  margin: 24px 0 12px;
+}
+section .lead { color: var(--text-dim); margin-bottom: 24px; font-size: 0.95rem; }
+p { margin-bottom: 12px; }
+
+/* Cards */
+.card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 16px;
+  margin: 20px 0;
+}
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 20px;
+  transition: border-color 0.2s;
+}
+.card:hover { border-color: var(--primary); }
+.card .icon { font-size: 1.8rem; margin-bottom: 10px; }
+.card h4 { font-size: 1.05rem; margin-bottom: 8px; color: var(--text); }
+.card p { font-size: 0.88rem; color: var(--text-dim); margin: 0; }
+
+/* Architecture Diagram */
+.arch-diagram {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 32px;
+  margin: 20px 0;
+  overflow-x: auto;
+}
+.arch-layer {
+  border: 2px solid var(--border);
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 12px;
+  position: relative;
+}
+.arch-layer .layer-label {
+  position: absolute;
+  top: -10px; left: 16px;
+  background: var(--surface);
+  padding: 0 8px;
+  font-size: 0.8rem;
+  color: var(--primary-light);
+  font-weight: 600;
+}
+.arch-modules {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+.arch-module {
+  background: var(--surface-light);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 10px 16px;
+  text-align: center;
+  font-size: 0.85rem;
+  min-width: 120px;
+}
+.arch-module.core { border-color: var(--primary); background: rgba(232,128,78,0.1); }
+.arch-arrow {
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 1.2rem;
+  margin: 4px 0;
+}
+
+/* Table */
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 16px 0;
+  font-size: 0.9rem;
+}
+th, td {
+  padding: 10px 14px;
+  text-align: left;
+  border-bottom: 1px solid var(--border);
+}
+th {
+  background: var(--surface-light);
+  color: var(--primary-light);
+  font-weight: 600;
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+td code, p code, li code {
+  background: var(--surface-light);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 0.85rem;
+  color: var(--primary-light);
+  font-family: "SF Mono", "Fira Code", monospace;
+}
+
+/* Lists */
+ul, ol { margin: 12px 0 12px 24px; }
+li { margin-bottom: 6px; }
+
+/* Tech badges */
+.badge-group { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0; }
+.badge {
+  display: inline-block;
+  padding: 4px 12px;
+  border-radius: 4px;
+  font-size: 0.82rem;
+  font-weight: 500;
+}
+.badge.rust { background: rgba(222,120,50,0.2); color: #de7832; border: 1px solid rgba(222,120,50,0.3); }
+.badge.frontend { background: rgba(97,218,252,0.2); color: #61dafb; border: 1px solid rgba(97,218,252,0.3); }
+.badge.data { background: rgba(33,150,243,0.2); color: #64b5f6; border: 1px solid rgba(33,150,243,0.3); }
+.badge.infra { background: rgba(156,39,176,0.2); color: #ce93d8; border: 1px solid rgba(156,39,176,0.3); }
+
+/* Timeline */
+.timeline { position: relative; margin: 24px 0; }
+.timeline::before {
+  content: '';
+  position: absolute;
+  left: 20px; top: 0; bottom: 0;
+  width: 2px;
+  background: var(--border);
+}
+.timeline-item {
+  position: relative;
+  padding-left: 50px;
+  margin-bottom: 24px;
+}
+.timeline-item::before {
+  content: '';
+  position: absolute;
+  left: 14px; top: 6px;
+  width: 14px; height: 14px;
+  border-radius: 50%;
+  background: var(--primary);
+  border: 3px solid var(--bg);
+}
+.timeline-item .phase {
+  font-size: 0.8rem;
+  color: var(--primary);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.timeline-item h4 { font-size: 1.05rem; margin: 4px 0 6px; }
+.timeline-item p { font-size: 0.88rem; color: var(--text-dim); }
+
+/* API Block */
+.api-block {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 16px;
+  margin: 12px 0;
+}
+.api-block .method {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  margin-right: 8px;
+}
+.api-block .method.get { background: rgba(76,175,80,0.2); color: #66bb6a; }
+.api-block .method.post { background: rgba(33,150,243,0.2); color: #42a5f5; }
+.api-block .method.ws { background: rgba(255,152,0,0.2); color: #ffb74d; }
+.api-block .path { font-family: monospace; color: var(--text); font-size: 0.9rem; }
+.api-block .desc { font-size: 0.82rem; color: var(--text-dim); margin-top: 4px; }
+
+/* Feature box */
+.feature-box {
+  background: var(--surface);
+  border-left: 3px solid var(--primary);
+  border-radius: 0 8px 8px 0;
+  padding: 16px 20px;
+  margin: 16px 0;
+}
+.feature-box h4 { color: var(--primary-light); margin-bottom: 8px; }
+.feature-box ul { margin: 8px 0 0 16px; }
+
+/* Footer */
+.footer {
+  text-align: center;
+  padding: 32px 0;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .hero h1 { font-size: 1.8rem; }
+  .card-grid { grid-template-columns: 1fr; }
+  .arch-modules { flex-direction: column; }
+}
+</style>
+</head>
+<body>
+
+<!-- Hero -->
+<div class="hero">
+  <div class="container">
+    <h1>Stock-Assister</h1>
+    <p class="subtitle">A 股智能投资辅助系统 · 项目设计方案</p>
+    <div class="meta">
+      <span>Rust + React</span>
+      <span>免费数据源</span>
+      <span>Web 应用</span>
+      <span>2026.08</span>
+    </div>
+  </div>
+</div>
+
+<!-- 1. 项目概述 -->
+<section>
+  <div class="container">
+    <h2><span class="num">1</span>项目概述</h2>
+    <p class="lead">Stock-Assister 是一个面向 A 股市场的智能投资辅助系统，旨在为个人投资者提供专业级的市场分析、个股诊断、技术分析和持仓监控能力。</p>
+
+    <div class="card-grid">
+      <div class="card">
+        <div class="icon">📊</div>
+        <h4>市场热点分析</h4>
+        <p>板块轮动追踪、涨停梯队复盘、资金流向热力图、题材驱动分析，帮助投资者快速锁定市场主线。</p>
+      </div>
+      <div class="card">
+        <div class="icon">🔍</div>
+        <h4>个股综合诊断</h4>
+        <p>基本面 + 技术面 + 资金面 + 消息面四维诊断模型，输出结构化风险评估与投资价值评分。</p>
+      </div>
+      <div class="card">
+        <div class="icon">📈</div>
+        <h4>技术分析引擎</h4>
+        <p>支撑位/压力位自动识别、20+ 技术指标计算（MACD/KDJ/布林带/RSI 等）、趋势形态识别。</p>
+      </div>
+      <div class="card">
+        <div class="icon">🔔</div>
+        <h4>持仓监控告警</h4>
+        <p>自选股实时监控、价格/指标异动告警、止损止盈提醒、板块资金异动推送。</p>
+      </div>
+      <div class="card">
+        <div class="icon">💰</div>
+        <h4>资金流向分析</h4>
+        <p>主力资金净流入/流出追踪、北向资金动向、行业资金分布、龙虎榜数据解析。</p>
+      </div>
+      <div class="card">
+        <div class="icon">🧠</div>
+        <h4>AI 辅助决策</h4>
+        <p>基于规则引擎 + 量化模型的智能选股、风险预警和操作建议生成。</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 2. 系统架构 -->
+<section>
+  <div class="container">
+    <h2><span class="num">2</span>系统架构</h2>
+    <p class="lead">采用前后端分离的分层架构，Rust 提供高性能后端服务，React 负责前端可视化展示。</p>
+
+    <div class="arch-diagram">
+      <!-- Frontend Layer -->
+      <div class="arch-layer">
+        <span class="layer-label">前端展示层 (React + ECharts)</span>
+        <div class="arch-modules">
+          <div class="arch-module">仪表盘 Dashboard</div>
+          <div class="arch-module">市场热点</div>
+          <div class="arch-module">个股诊断</div>
+          <div class="arch-module">技术分析</div>
+          <div class="arch-module">持仓管理</div>
+          <div class="arch-module">告警中心</div>
+        </div>
+      </div>
+
+      <div class="arch-arrow">▼ HTTP REST / WebSocket ▲</div>
+
+      <!-- API Gateway -->
+      <div class="arch-layer">
+        <span class="layer-label">API 网关层 (Axum)</span>
+        <div class="arch-modules">
+          <div class="arch-module">REST API</div>
+          <div class="arch-module">WebSocket 推送</div>
+          <div class="arch-module">认证中间件</div>
+          <div class="arch-module">限流/缓存</div>
+        </div>
+      </div>
+
+      <!-- Core Business Layer -->
+      <div class="arch-layer">
+        <span class="layer-label">核心业务层 (Domain Services)</span>
+        <div class="arch-modules">
+          <div class="arch-module core">市场分析服务</div>
+          <div class="arch-module core">个股诊断服务</div>
+          <div class="arch-module core">技术分析引擎</div>
+          <div class="arch-module core">资金流向服务</div>
+          <div class="arch-module core">监控告警服务</div>
+          <div class="arch-module core">选股策略引擎</div>
+        </div>
+      </div>
+
+      <!-- Data Layer -->
+      <div class="arch-layer">
+        <span class="layer-label">数据采集层 (DataFetcher)</span>
+        <div class="arch-modules">
+          <div class="arch-module">东方财富 API</div>
+          <div class="arch-module">新浪财经 API</div>
+          <div class="arch-module">腾讯财经 API</div>
+          <div class="arch-module">AKShare 适配器</div>
+          <div class="arch-module">定时调度器</div>
+        </div>
+      </div>
+
+      <div class="arch-arrow">▼</div>
+
+      <!-- Storage Layer -->
+      <div class="arch-layer">
+        <span class="layer-label">存储层</span>
+        <div class="arch-modules">
+          <div class="arch-module">SQLite / PostgreSQL</div>
+          <div class="arch-module">Redis 缓存</div>
+          <div class="arch-module">文件存储</div>
+        </div>
+      </div>
+    </div>
+
+    <h3>架构设计原则</h3>
+    <ul>
+      <li><strong>分层解耦</strong>：前端、API、业务逻辑、数据采集、存储各层职责清晰，通过 trait 接口通信</li>
+      <li><strong>数据驱动</strong>：统一的数据模型和采集管道，所有业务模块共享标准化数据</li>
+      <li><strong>实时 + 离线</strong>：盘中实时推送 + 盘后批量分析，双通道并行</li>
+      <li><strong>可扩展</strong>：数据源适配器模式，新增数据源只需实现 trait 接口；策略插件化</li>
+      <li><strong>高性能</strong>：Rust 零成本抽象 + 异步 IO (tokio)，支撑高并发数据采集与计算</li>
+    </ul>
+  </div>
+</section>
+
+<!-- 3. 技术选型 -->
+<section>
+  <div class="container">
+    <h2><span class="num">3</span>技术选型</h2>
+    <p class="lead">以 Rust 为核心，构建高性能、类型安全、内存安全的后端服务。</p>
+
+    <h3>后端技术栈</h3>
+    <div class="badge-group">
+      <span class="badge rust">Rust 1.80+</span>
+      <span class="badge rust">Tokio (异步运行时)</span>
+      <span class="badge rust">Axum (Web 框架)</span>
+      <span class="badge rust">SQLx (数据库 ORM)</span>
+      <span class="badge rust">Serde (序列化)</span>
+      <span class="badge rust">Reqwest (HTTP 客户端)</span>
+      <span class="badge rust">Polars (数据处理)</span>
+      <span class="badge rust">Tower (中间件)</span>
+      <span class="badge rust">Tracing (日志追踪)</span>
+    </div>
+
+    <h3>前端技术栈</h3>
+    <div class="badge-group">
+      <span class="badge frontend">React 18</span>
+      <span class="badge frontend">Vite</span>
+      <span class="badge frontend">Zustand (状态管理)</span>
+      <span class="badge frontend">React Router</span>
+      <span class="badge frontend">ECharts (图表)</span>
+      <span class="badge frontend">TailwindCSS</span>
+      <span class="badge frontend">Ant Design</span>
+    </div>
+
+    <h3>数据与基础设施</h3>
+    <div class="badge-group">
+      <span class="badge data">东方财富 Push2 API</span>
+      <span class="badge data">新浪 hq.sinajs.cn</span>
+      <span class="badge data">腾讯 qt.gtimg.cn</span>
+      <span class="badge data">AKShare (Python Sidecar)</span>
+      <span class="badge infra">SQLite (开发) / PostgreSQL (生产)</span>
+      <span class="badge infra">Redis (缓存)</span>
+      <span class="badge infra">Docker</span>
+    </div>
+
+    <table>
+      <thead>
+        <tr><th>组件</th><th>选型</th><th>选择理由</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>编程语言</td>
+          <td>Rust</td>
+          <td>高性能、内存安全、强类型系统；Rustrover 原生支持；适合金融数据处理场景</td>
+        </tr>
+        <tr>
+          <td>异步运行时</td>
+          <td>Tokio</td>
+          <td>Rust 生态最成熟的异步运行时，支持高并发 IO 密集型任务</td>
+        </tr>
+        <tr>
+          <td>Web 框架</td>
+          <td>Axum</td>
+          <td>Tokio 团队官方维护，与 Tower 中间件生态无缝集成，类型安全路由</td>
+        </tr>
+        <tr>
+          <td>数据库驱动</td>
+          <td>SQLx</td>
+          <td>编译时 SQL 校验，原生异步，支持 SQLite/PostgreSQL 切换</td>
+        </tr>
+        <tr>
+          <td>数据处理</td>
+          <td>Polars</td>
+          <td>Rust 原生 DataFrame 库，处理 K 线/财务数据高效，类似 Pandas</td>
+        </tr>
+        <tr>
+          <td>前端框架</td>
+          <td>React 18 + Vite</td>
+          <td>生态成熟、组件库丰富、TypeScript 原生支持；echarts-for-react 深度集成，适合数据可视化</td>
+        </tr>
+        <tr>
+          <td>图表库</td>
+          <td>ECharts</td>
+          <td>支持 K 线图、热力图、关系图等丰富图表类型，A 股可视化首选</td>
+        </tr>
+        <tr>
+          <td>缓存</td>
+          <td>Redis</td>
+          <td>实时行情缓存、会话管理、发布订阅告警推送</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- 4. 核心模块设计 -->
+<section>
+  <div class="container">
+    <h2><span class="num">4</span>核心模块设计</h2>
+    <p class="lead">六大核心业务模块 + 两大基础设施模块，各模块通过 trait 接口解耦。</p>
+
+    <h3>4.1 数据采集模块 (DataFetcher)</h3>
+    <div class="feature-box">
+      <h4>统一数据采集管道</h4>
+      <ul>
+        <li><strong>多源适配器</strong>：为每个数据源实现 <code>DataFetcher</code> trait，支持统一接口切换</li>
+        <li><strong>实时行情</strong>：东方财富 Push2 API 轮询/WebSocket，3-5 秒刷新频率</li>
+        <li><strong>历史 K 线</strong>：日/周/月 K 线数据，支持前复权/后复权</li>
+        <li><strong>财务数据</strong>：资产负债表、利润表、现金流量表，季报/年报</li>
+        <li><strong>资金数据</strong>：主力资金流向、北向资金、龙虎榜、大宗交易</li>
+        <li><strong>新闻公告</strong>：个股新闻、公司公告、研报摘要</li>
+        <li><strong>定时调度</strong>：基于 cron 表达式的任务调度，盘前/盘中/盘后不同策略</li>
+      </ul>
+    </div>
+
+    <h3>4.2 市场热点分析模块 (MarketAnalyzer)</h3>
+    <div class="feature-box">
+      <h4>市场全景扫描</h4>
+      <ul>
+        <li><strong>板块轮动</strong>：申万一级/二级行业涨跌排行，板块资金净流入排名</li>
+        <li><strong>涨停梯队</strong>：连板天数分层统计、炸板率计算、晋级率追踪</li>
+        <li><strong>题材驱动</strong>：热点题材识别、关联个股挖掘、题材强度评分</li>
+        <li><strong>市场情绪</strong>：涨跌家数比、涨停跌停比、连板高度、情绪温度计</li>
+        <li><strong>龙虎榜</strong>：游资席位追踪、机构买卖统计、知名游资动向</li>
+      </ul>
+    </div>
+
+    <h3>4.3 个股诊断模块 (StockDiagnoser)</h3>
+    <div class="feature-box">
+      <h4>四维诊断模型</h4>
+      <ul>
+        <li><strong>基本面</strong>：PE/PB/PS 估值分位、ROE/营收增速/利润增速趋势、负债率、现金流健康度</li>
+        <li><strong>技术面</strong>：趋势方向（均线多头/空头排列）、量价配合度、形态识别</li>
+        <li><strong>资金面</strong>：主力资金近 5/10/20 日净流入、北向持仓变化、融资融券余额变化</li>
+        <li><strong>消息面</strong>：近期利空/利好事件、解禁/减持/回购公告、业绩预告</li>
+        <li><strong>综合评分</strong>：0-100 分制综合评分 + 风险等级（低/中/高）+ 操作建议</li>
+      </ul>
+    </div>
+
+    <h3>4.4 技术分析引擎 (TechnicalAnalyzer)</h3>
+    <div class="feature-box">
+      <h4>专业级技术分析</h4>
+      <ul>
+        <li><strong>支撑/压力位</strong>：基于近期高低点、筹码分布、整数关口、均线位的综合计算</li>
+        <li><strong>技术指标库</strong>：MACD、KDJ、RSI、布林带、OBV、CCI、WR、DMI 等 20+ 指标</li>
+        <li><strong>形态识别</strong>：头肩顶/底、双顶/双底、三角形、旗形等经典形态自动识别</li>
+        <li><strong>K 线形态</strong>：十字星、锤子线、吞没形态、早晨之星/黄昏之星等</li>
+        <li><strong>趋势分析</strong>：道氏理论、波浪理论辅助标注、趋势线自动绘制</li>
+        <li><strong>筹码分布</strong>：基于成交量分布的筹码峰计算，支撑/压力可视化</li>
+      </ul>
+    </div>
+
+    <h3>4.5 资金流向模块 (CapitalFlow)</h3>
+    <div class="feature-box">
+      <h4>资金动向全景</h4>
+      <ul>
+        <li><strong>个股资金</strong>：超大单/大单/中单/小单资金流向，主力净买额趋势</li>
+        <li><strong>板块资金</strong>：行业/概念板块资金净流入排行，板块轮动资金信号</li>
+        <li><strong>北向资金</strong>：沪深股通实时净买额、十大活跃股、行业配置变化</li>
+        <li><strong>融资融券</strong>：融资余额变化趋势、融券卖出变化、多空力量对比</li>
+        <li><strong>大宗交易</strong>：折溢价率统计、机构大宗交易追踪</li>
+      </ul>
+    </div>
+
+    <h3>4.6 监控告警模块 (Monitor & Alert)</h3>
+    <div class="feature-box">
+      <h4>智能告警系统</h4>
+      <ul>
+        <li><strong>价格告警</strong>：突破/跌破指定价格、涨跌幅阈值、日内振幅异常</li>
+        <li><strong>指标告警</strong>：MACD 金叉/死叉、KDJ 超买/超卖、均线突破/跌破</li>
+        <li><strong>量价告警</strong>：放量涨停、缩量跌停、量比异常放大</li>
+        <li><strong>资金告警</strong>：主力大额净流入/流出、北向资金异动</li>
+        <li><strong>事件告警</strong>：公告/新闻关键词触发、停复牌通知</li>
+        <li><strong>推送渠道</strong>：站内消息、WebSocket 实时推送、邮件通知（可选微信/钉钉）</li>
+      </ul>
+    </div>
+
+    <h3>4.7 数据存储模块 (Storage)</h3>
+    <div class="feature-box">
+      <h4>分层存储策略</h4>
+      <ul>
+        <li><strong>热数据</strong>：Redis 缓存实时行情、自选股列表、会话信息（TTL 5-10 秒）</li>
+        <li><strong>温数据</strong>：数据库存储日 K 线、财务数据、诊断报告（持久化）</li>
+        <li><strong>冷数据</strong>：历史 Tick 数据、分钟 K 线归档（按需查询）</li>
+        <li><strong>时序优化</strong>：K 线数据按 (股票代码, 日期) 复合索引，支持快速范围查询</li>
+      </ul>
+    </div>
+
+    <h3>4.8 调度与任务模块 (Scheduler)</h3>
+    <div class="feature-box">
+      <h4>定时任务调度</h4>
+      <ul>
+        <li><strong>盘前任务</strong>（09:00-09:25）：获取昨日收盘数据、更新股票列表、计算隔夜信号</li>
+        <li><strong>盘中任务</strong>（09:25-15:00）：实时行情采集、指标计算、告警检测、资金流监控</li>
+        <li><strong>盘后任务</strong>（15:00-23:00）：日线数据更新、龙虎榜解析、涨停复盘、诊断报告生成</li>
+        <li><strong>周末任务</strong>：周线数据更新、板块统计、策略回测</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- 5. 数据流设计 -->
+<section>
+  <div class="container">
+    <h2><span class="num">5</span>数据流设计</h2>
+    <p class="lead">从数据采集到用户终端的完整数据流转链路。</p>
+
+    <div class="arch-diagram">
+      <div class="arch-layer">
+        <span class="layer-label">数据采集流</span>
+        <div class="arch-modules">
+          <div class="arch-module">外部 API (东财/新浪/腾讯)</div>
+          <div class="arch-module">▼</div>
+          <div class="arch-module core">DataFetcher 适配器</div>
+          <div class="arch-module">▼</div>
+          <div class="arch-module">数据清洗 & 标准化</div>
+          <div class="arch-module">▼</div>
+          <div class="arch-module core">Redis 缓存 (实时) + DB 持久化 (历史)</div>
+        </div>
+      </div>
+
+      <div class="arch-layer">
+        <span class="layer-label">业务处理流</span>
+        <div class="arch-modules">
+          <div class="arch-module core">市场分析</div>
+          <div class="arch-module">↕</div>
+          <div class="arch-module core">个股诊断</div>
+          <div class="arch-module">↕</div>
+          <div class="arch-module core">技术分析</div>
+          <div class="arch-module">↕</div>
+          <div class="arch-module core">资金流向</div>
+        </div>
+      </div>
+
+      <div class="arch-layer">
+        <span class="layer-label">推送 & 告警流</span>
+        <div class="arch-modules">
+          <div class="arch-module core">告警引擎检测</div>
+          <div class="arch-module">▼</div>
+          <div class="arch-module">WebSocket 实时推送</div>
+          <div class="arch-module">▼</div>
+          <div class="arch-module">前端实时更新</div>
+        </div>
+      </div>
+    </div>
+
+    <h3>关键数据流场景</h3>
+    <table>
+      <thead>
+        <tr><th>场景</th><th>触发</th><th>数据流</th><th>延迟</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>实时行情推送</td>
+          <td>盘中每 3-5 秒</td>
+          <td>外部 API → DataFetcher → Redis → WebSocket → 前端</td>
+          <td>< 1s</td>
+        </tr>
+        <tr>
+          <td>个股诊断</td>
+          <td>用户请求</td>
+          <td>前端 → API → 诊断服务 → (DB + Redis + 实时数据) → 综合评分 → 前端</td>
+          <td>< 2s</td>
+        </tr>
+        <tr>
+          <td>技术指标计算</td>
+          <td>用户请求 / 定时</td>
+          <td>DB 历史 K 线 → Polars DataFrame → 指标计算 → 前端</td>
+          <td>< 500ms</td>
+        </tr>
+        <tr>
+          <td>告警触发</td>
+          <td>价格/指标突破阈值</td>
+          <td>定时检测 → 告警引擎 → WebSocket 推送 + DB 记录</td>
+          <td>< 3s</td>
+        </tr>
+        <tr>
+          <td>盘后复盘</td>
+          <td>每日 15:30</td>
+          <td>批量采集 → 数据清洗 → 涨停分析 → 资金统计 → 生成报告 → DB</td>
+          <td>~5min</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- 6. 数据库设计 -->
+<section>
+  <div class="container">
+    <h2><span class="num">6</span>数据库设计</h2>
+    <p class="lead">使用 SQLx 管理数据库，开发阶段使用 SQLite，生产环境可平滑迁移至 PostgreSQL。</p>
+
+    <h3>核心表结构</h3>
+    <table>
+      <thead>
+        <tr><th>表名</th><th>用途</th><th>关键字段</th><th>索引</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><code>stocks</code></td>
+          <td>股票基础信息</td>
+          <td>code, name, market(SH/SZ/BJ), industry, list_date, status</td>
+          <td>PK(code), INDEX(industry)</td>
+        </tr>
+        <tr>
+          <td><code>kline_daily</code></td>
+          <td>日 K 线数据</td>
+          <td>stock_code, date, open, close, high, low, volume, amount, turnover, pct_change</td>
+          <td>PK(stock_code, date), INDEX(date)</td>
+        </tr>
+        <tr>
+          <td><code>kline_minute</code></td>
+          <td>分钟 K 线 (1/5/15/30/60min)</td>
+          <td>stock_code, datetime, period, open, close, high, low, volume</td>
+          <td>PK(stock_code, datetime, period)</td>
+        </tr>
+        <tr>
+          <td><code>financial_report</code></td>
+          <td>财务报表</td>
+          <td>stock_code, report_date, report_type, revenue, net_profit, total_assets, net_assets, roe, eps</td>
+          <td>PK(stock_code, report_date), INDEX(report_type)</td>
+        </tr>
+        <tr>
+          <td><code>capital_flow</code></td>
+          <td>个股资金流向</td>
+          <td>stock_code, date, main_net, super_large_net, large_net, medium_net, small_net</td>
+          <td>PK(stock_code, date)</td>
+        </tr>
+        <tr>
+          <td><code>north_flow</code></td>
+          <td>北向资金</td>
+          <td>date, stock_code, hold_share, hold_amount, net_buy</td>
+          <td>PK(date, stock_code)</td>
+        </tr>
+        <tr>
+          <td><code>dragon_tiger</code></td>
+          <td>龙虎榜</td>
+          <td>date, stock_code, reason, seat_name, seat_type(buy/sell), amount</td>
+          <td>PK(id), INDEX(date, stock_code)</td>
+        </tr>
+        <tr>
+          <td><code>limit_up</code></td>
+          <td>涨停板数据</td>
+          <td>date, stock_code, limit_price, first_limit_time, last_limit_time, open_count, continuous_days</td>
+          <td>PK(date, stock_code), INDEX(continuous_days)</td>
+        </tr>
+        <tr>
+          <td><code>watchlist</code></td>
+          <td>自选股</td>
+          <td>user_id, stock_code, add_time, group_name, note</td>
+          <td>PK(user_id, stock_code)</td>
+        </tr>
+        <tr>
+          <td><code>alert_rules</code></td>
+          <td>告警规则</td>
+          <td>id, user_id, stock_code, rule_type, params(JSON), status, created_at</td>
+          <td>PK(id), INDEX(user_id, stock_code)</td>
+        </tr>
+        <tr>
+          <td><code>alert_history</code></td>
+          <td>告警历史</td>
+          <td>id, rule_id, stock_code, triggered_at, alert_content, status(read/unread)</td>
+          <td>PK(id), INDEX(user_id, triggered_at)</td>
+        </tr>
+        <tr>
+          <td><code>diagnosis_report</code></td>
+          <td>诊断报告</td>
+          <td>id, stock_code, generated_at, score, risk_level, summary(JSON), details(JSON)</td>
+          <td>PK(id), INDEX(stock_code, generated_at)</td>
+        </tr>
+        <tr>
+          <td><code>sector_data</code></td>
+          <td>板块数据</td>
+          <td>date, sector_code, sector_name, sector_type, change_pct, net_amount, leader_stock</td>
+          <td>PK(date, sector_code, sector_type)</td>
+        </tr>
+        <tr>
+          <td><code>news</code></td>
+          <td>新闻资讯</td>
+          <td>id, stock_code, title, content, source, published_at, sentiment(positive/negative/neutral)</td>
+          <td>PK(id), INDEX(stock_code, published_at)</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- 7. API 设计 -->
+<section>
+  <div class="container">
+    <h2><span class="num">7</span>API 设计</h2>
+    <p class="lead">RESTful API + WebSocket 双通道，统一 <code>/api/v1</code> 前缀，JSON 格式交互。</p>
+
+    <h3>REST API 接口</h3>
+
+    <h4>行情数据</h4>
+    <div class="api-block">
+      <span class="method get">GET</span>
+      <span class="path">/api/v1/quotes/{stock_code}</span>
+      <p class="desc">获取个股实时行情（最新价、涨跌幅、成交量等）</p>
+    </div>
+    <div class="api-block">
+      <span class="method get">GET</span>
+      <span class="path">/api/v1/quotes/batch?codes=000001,000002,...</span>
+      <p class="desc">批量获取多只股票实时行情</p>
+    </div>
+    <div class="api-block">
+      <span class="method get">GET</span>
+      <span class="path">/api/v1/kline/{stock_code}?period=daily&start=2026-01-01&end=2026-08-01</span>
+      <p class="desc">获取 K 线数据，支持 daily/weekly/monthly/minute</p>
+    </div>
+
+    <h4>市场分析</h4>
+    <div class="api-block">
+      <span class="method get">GET</span>
+      <span class="path">/api/v1/market/overview</span>
+      <p class="desc">大盘总览（上证/深证/创业板指数、涨跌家数、市场情绪）</p>
+    </div>
+    <div class="api-block">
+      <span class="method get">GET</span>
+      <span class="path">/api/v1/market/sectors?type=industry&sort=change_pct</span>
+      <p class="desc">板块排行（行业/概念板块涨跌排行）</p>
+    </div>
+    <div class="api-block">
+      <span class="method get">GET</span>
+      <span class="path">/api/v1/market/limit-up?date=2026-08-01</span>
+      <p class="desc">涨停板复盘（连板梯队、炸板统计、晋级率）</p>
+    </div>
+    <div class="api-block">
+      <span class="method get">GET</span>
+      <span class="path">/api/v1/market/dragon-tiger?date=2026-08-01</span>
+      <p class="desc">龙虎榜数据（游资席位、机构买卖）</p>
+    </div>
+
+    <h4>个股诊断</h4>
+    <div class="api-block">
+      <span class="method get">GET</span>
+      <span class="path">/api/v1/diagnosis/{stock_code}</span>
+      <p class="desc">获取最新诊断报告（综合评分、风险等级、四维分析详情）</p>
+    </div>
+    <div class="api-block">
+      <span class="method post">POST</span>
+      <span class="path">/api/v1/diagnosis/{stock_code}/generate</span>
+      <p class="desc">触发生成新的诊断报告（实时计算）</p>
+    </div>
+
+    <h4>技术分析</h4>
+    <div class="api-block">
+      <span class="method get">GET</span>
+      <span class="path">/api/v1/technical/{stock_code}/indicators?types=macd,kdj,rsi,boll</span>
+      <p class="desc">获取技术指标计算结果</p>
+    </div>
+    <div class="api-block">
+      <span class="method get">GET</span>
+      <span class="path">/api/v1/technical/{stock_code}/support-resistance</span>
+      <p class="desc">获取支撑位/压力位分析</p>
+    </div>
+    <div class="api-block">
+      <span class="method get">GET</span>
+      <span class="path">/api/v1/technical/{stock_code}/patterns</span>
+      <p class="desc">获取 K 线形态/技术形态识别结果</p>
+    </div>
+    <div class="api-block">
+      <span class="method get">GET</span>
+      <span class="path">/api/v1/technical/{stock_code}/chip-distribution</span>
+      <p class="desc">获取筹码分布数据</p>
+    </div>
+
+    <h4>资金流向</h4>
+    <div class="api-block">
+      <span class="method get">GET</span>
+      <span class="path">/api/v1/capital/{stock_code}/flow?days=10</span>
+      <p class="desc">个股资金流向（主力/超大单/大单/中单/小单）</p>
+    </div>
+    <div class="api-block">
+      <span class="method get">GET</span>
+      <span class="path">/api/v1/capital/north?days=30</span>
+      <p class="desc">北向资金数据（净买额、十大活跃股）</p>
+    </div>
+    <div class="api-block">
+      <span class="method get">GET</span>
+      <span class="path">/api/v1/capital/sector-flow?type=industry</span>
+      <p class="desc">板块资金流向排行</p>
+    </div>
+
+    <h4>自选股 & 告警</h4>
+    <div class="api-block">
+      <span class="method get">GET</span>
+      <span class="path">/api/v1/watchlist</span>
+      <p class="desc">获取自选股列表</p>
+    </div>
+    <div class="api-block">
+      <span class="method post">POST</span>
+      <span class="path">/api/v1/watchlist</span>
+      <p class="desc">添加自选股</p>
+    </div>
+    <div class="api-block">
+      <span class="method post">POST</span>
+      <span class="path">/api/v1/alerts/rules</span>
+      <p class="desc">创建告警规则</p>
+    </div>
+    <div class="api-block">
+      <span class="method get">GET</span>
+      <span class="path">/api/v1/alerts/history?status=unread</span>
+      <p class="desc">获取告警历史</p>
+    </div>
+
+    <h4>WebSocket 接口</h4>
+    <div class="api-block">
+      <span class="method ws">WS</span>
+      <span class="path">/ws/quotes?codes=000001,600000</span>
+      <p class="desc">订阅实时行情推送（3-5 秒频率）</p>
+    </div>
+    <div class="api-block">
+      <span class="method ws">WS</span>
+      <span class="path">/ws/alerts</span>
+      <p class="desc">订阅告警推送（价格突破、指标信号等实时通知）</p>
+    </div>
+  </div>
+</section>
+
+<!-- 8. 项目结构 -->
+<section>
+  <div class="container">
+    <h2><span class="num">8</span>项目结构</h2>
+    <p class="lead">Rust Cargo Workspace 多 crate 组织，前端单独目录管理。</p>
+
+    <div class="arch-diagram" style="font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.82rem; line-height: 1.9; white-space: pre;">stock-assister/
+├── Cargo.toml                  # Workspace 根配置
+├── docs/                       # 项目文档
+│   └── design-plan.html        # 本设计方案
+│
+├── crates/                     # Rust 后端 crates
+│   ├── core/                   # 核心领域模型 & 公共类型
+│   │   ├── src/
+│   │   │   ├── models/         # 数据模型 (Stock, KLine, Financial...)
+│   │   │   ├── errors.rs       # 统一错误类型
+│   │   │   └── lib.rs
+│   │   └── Cargo.toml
+│   │
+│   ├── fetcher/                # 数据采集层
+│   │   ├── src/
+│   │   │   ├── traits.rs       # DataFetcher trait 定义
+│   │   │   ├── eastmoney.rs    # 东方财富适配器
+│   │   │   ├── sina.rs         # 新浪财经适配器
+│   │   │   ├── tencent.rs      # 腾讯财经适配器
+│   │   │   ├── akshare.rs      # AKShare Python sidecar 适配器
+│   │   │   └── lib.rs
+│   │   └── Cargo.toml
+│   │
+│   ├── indicators/             # 技术指标计算引擎
+│   │   ├── src/
+│   │   │   ├── macd.rs
+│   │   │   ├── kdj.rs
+│   │   │   ├── rsi.rs
+│   │   │   ├── bollinger.rs
+│   │   │   ├── support_resistance.rs
+│   │   │   ├── patterns.rs     # K 线形态识别
+│   │   │   └── lib.rs
+│   │   └── Cargo.toml
+│   │
+│   ├── analyzer/               # 业务分析层
+│   │   ├── src/
+│   │   │   ├── market.rs       # 市场热点分析
+│   │   │   ├── diagnosis.rs    # 个股四维诊断
+│   │   │   ├── capital.rs      # 资金流向分析
+│   │   │   ├── technical.rs    # 技术分析服务
+│   │   │   └── lib.rs
+│   │   └── Cargo.toml
+│   │
+│   ├── storage/                # 数据存储层
+│   │   ├── src/
+│   │   │   ├── schema.rs       # 数据库 schema 定义
+│   │   │   ├── repository.rs   # 数据访问层
+│   │   │   ├── cache.rs        # Redis 缓存
+│   │   │   └── lib.rs
+│   │   └── Cargo.toml
+│   │
+│   ├── scheduler/              # 定时任务调度
+│   │   ├── src/
+│   │   │   ├── tasks/          # 盘前/盘中/盘后任务
+│   │   │   └── lib.rs
+│   │   └── Cargo.toml
+│   │
+│   └── api/                    # Web API 服务 (主入口)
+│       ├── src/
+│       │   ├── routes/         # API 路由
+│       │   ├── middleware/      # 中间件
+│       │   ├── ws/             # WebSocket 处理
+│       │   ├── app.rs          # 应用配置
+│       │   └── main.rs         # 启动入口
+│       └── Cargo.toml
+│
+├── frontend/                   # React 前端
+│   ├── src/
+│   │   ├── pages/              # 页面组件
+│   │   ├── components/         # 通用组件
+│   │   ├── stores/             # Zustand 状态
+│   │   ├── api/                # API 调用封装
+│   │   └── utils/
+│   ├── package.json
+│   └── vite.config.ts
+│
+├── python-sidecar/             # AKShare Python 辅助服务
+│   ├── server.py               # FastAPI 轻量服务
+│   └── requirements.txt
+│
+├── docker-compose.yml          # 容器编排
+├── Dockerfile                  # 后端镜像
+└── .env.example                # 环境变量模板</div>
+  </div>
+</section>
+
+<!-- 9. 开发路线图 -->
+<section>
+  <div class="container">
+    <h2><span class="num">9</span>开发路线图</h2>
+    <p class="lead">分四个阶段迭代开发，每个阶段产出可用的增量版本。</p>
+
+    <div class="timeline">
+      <div class="timeline-item">
+        <div class="phase">Phase 1 · 基础设施</div>
+        <h4>项目骨架 + 数据采集 + 行情展示</h4>
+        <p>
+          搭建 Cargo Workspace 项目骨架；实现东方财富/新浪数据采集适配器；完成数据库 schema 设计与迁移；实现基础 REST API（行情、K 线）；搭建 React 前端骨架，实现 K 线图展示和实时行情面板。
+          <br><strong>交付物</strong>：可运行的 Web 应用，能查看个股实时行情和 K 线图。
+        </p>
+      </div>
+
+      <div class="timeline-item">
+        <div class="phase">Phase 2 · 核心分析</div>
+        <h4>技术分析引擎 + 个股诊断</h4>
+        <p>
+         实现技术指标计算库（MACD/KDJ/RSI/布林带等 20+ 指标）；支撑位/压力位算法；K 线形态识别；个股四维诊断模型（基本面/技术面/资金面/消息面）；诊断报告生成与展示。
+          <br><strong>交付物</strong>：个股诊断页面、技术分析页面（指标叠加、形态标注）。
+        </p>
+      </div>
+
+      <div class="timeline-item">
+        <div class="phase">Phase 3 · 市场全景</div>
+        <h4>市场热点 + 资金流向 + 涨停复盘</h4>
+        <p>
+         板块轮动分析；涨停梯队统计与复盘；龙虎榜数据解析；资金流向分析（主力/北向/融资融券）；市场情绪指标；大盘仪表盘。
+          <br><strong>交付物</strong>：市场热点页面、资金流向页面、涨停复盘日报。
+        </p>
+      </div>
+
+      <div class="timeline-item">
+        <div class="phase">Phase 4 · 智能告警</div>
+        <h4>自选股管理 + 告警系统 + WebSocket 推送</h4>
+        <p>
+         自选股分组管理；告警规则引擎（价格/指标/资金/事件）；WebSocket 实时推送；告警历史记录；邮件/Webhook 通知；Docker 容器化部署。
+          <br><strong>交付物</strong>：完整的持仓监控告警系统，生产可部署版本。
+        </p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 10. 部署方案 -->
+<section>
+  <div class="container">
+    <h2><span class="num">10</span>部署方案</h2>
+    <p class="lead">Docker 容器化部署，支持本地开发和云端生产环境。</p>
+
+    <div class="card-grid">
+      <div class="card">
+        <div class="icon">🐳</div>
+        <h4>Docker Compose 编排</h4>
+        <p>后端服务 + 前端 Nginx + Redis + (PostgreSQL)，一键 <code>docker-compose up</code> 启动全套环境</p>
+      </div>
+      <div class="card">
+        <div class="icon">⚙️</div>
+        <h4>配置管理</h4>
+        <p><code>.env</code> 环境变量管理，支持开发/测试/生产多环境配置切换</p>
+      </div>
+      <div class="card">
+        <div class="icon">📊</div>
+        <h4>监控 & 日志</h4>
+        <p>Tracing 结构化日志 + 日志文件轮转；可选接入 Prometheus + Grafana 监控</p>
+      </div>
+      <div class="card">
+        <div class="icon">🔄</div>
+        <h4>数据更新</h4>
+        <p>定时任务自动采集数据，无需人工干预；支持手动触发数据更新</p>
+      </div>
+    </div>
+
+    <h3>部署架构</h3>
+    <div class="arch-diagram" style="font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.82rem; line-height: 1.9; white-space: pre;">
+                    ┌──────────────┐
+                    │   Nginx :80  │  ← 静态资源 + 反向代理
+                    └──────┬───────┘
+                           │
+            ┌──────────────┼──────────────┐
+            │              │              │
+     ┌──────▼──────┐ ┌─────▼──────┐ ┌────▼─────┐
+     │ Rust API    │ │  WebSocket  │ │ Frontend │
+     │ :8080       │ │  :8080/ws   │ │ (static) │
+     └──────┬──────┘ └─────┬──────┘ └──────────┘
+            │              │
+     ┌──────▼──────────────▼──────┐
+     │       Scheduler (内嵌)      │
+     └──────┬──────────────────────┘
+            │
+     ┌──────▼──────┐    ┌──────────┐
+     │ PostgreSQL  │    │  Redis   │
+     │   :5432     │    │  :6379   │
+     └─────────────┘    └──────────┘
+
+  (可选) Python Sidecar :5001  ← AKShare 复杂数据获取</div>
+  </div>
+</section>
+
+<!-- Footer -->
+<div class="footer">
+  <div class="container">
+    <p>Stock-Assister 项目设计方案 · 2026.08 · Rust + React</p>
+    <p>本方案供项目开发参考，可根据实际需求调整</p>
+  </div>
+</div>
+
+</body>
+</html>

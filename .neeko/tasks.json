@@ -1,0 +1,18 @@
+{
+  "tasks": [
+    {
+      "id": "d5600f64-0bd7-4b82-9e0b-37795e6a1ddf",
+      "name": "dev",
+      "command": "cd frontend && npm run dev",
+      "scope": "project",
+      "project_id": "ad90d2dc-15f0-4dd5-913a-683623d50648"
+    },
+    {
+      "id": "497357a4-c287-4534-ba94-d9dcbd1c5b76",
+      "name": "backend run",
+      "command": "cargo run",
+      "scope": "project",
+      "project_id": "ad90d2dc-15f0-4dd5-913a-683623d50648"
+    }
+  ]
+}

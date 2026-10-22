@@ -1,8 +1,9 @@
 import { useState, useEffect, useRef } from 'react'
-import { Card, Table, Input, Button, Tag, Spin, Empty, message, Descriptions } from 'antd'
+import { Card, Table, Input, Button, Spin, Empty, Alert, message, Descriptions } from 'antd'
 import { SearchOutlined } from '@ant-design/icons'
 import * as echarts from 'echarts'
 import { api, FinancialSummary, FinancialIndicator } from '../api'
+import { usePersistedState } from '../stores/persistedState'
 
 function colorYoY(val: number | null): string {
   if (val == null) return '#999'
@@ -10,28 +11,39 @@ function colorYoY(val: number | null): string {
 }
 
 export default function FinancialAnalysisPage() {
-  const [code, setCode] = useState('')
+  const [code, setCode] = usePersistedState('finance.code', '')
   const [data, setData] = useState<FinancialSummary | null>(null)
   const [loading, setLoading] = useState(false)
+  // 查不到数据时保留上一次结果，只把错误横幅挂在上面，避免整页被清空
+  const [error, setError] = useState<string | null>(null)
   const chartRef = useRef<HTMLDivElement>(null)
 
   async function search() {
     if (!code) return
     setLoading(true)
+    setError(null)
     try {
       const d = await api.getFinancialIndicators(code)
       setData(d)
-      setTimeout(() => renderChart(d.indicators), 150)
-    } catch {
-      message.error('查询财务数据失败')
+    } catch (e) {
+      // 后端现在会在「报表失效 / 查无此股」时返回 4xx/5xx 并带上原因，
+      // 而不是 200 + 空对象。原样透出，否则线上坏了只能看到一张空表。
+      const msg = e instanceof Error ? e.message : '查询财务数据失败'
+      setError(msg)
+      message.error(msg)
     }
     setLoading(false)
   }
 
-  function renderChart(indicators: FinancialIndicator[]) {
-    if (!chartRef.current || indicators.length < 2) return
-    const reversed = [...indicators].reverse()
-    const chart = echarts.init(chartRef.current)
+  // 图表容器由 {data && ...} 控制挂载，data 落地后 DOM 才存在，所以在这里画
+  useEffect(() => {
+    const el = chartRef.current
+    if (!el || !data || data.indicators.length < 2) return
+
+    // 同一个 DOM 重复 init 会触发 echarts 的 "instance already initialized"
+    // 告警并泄漏旧实例。复用已有实例，并用 notMerge 整体替换 option。
+    const chart = echarts.getInstanceByDom(el) ?? echarts.init(el)
+    const reversed = [...data.indicators].reverse()
     chart.setOption({
       tooltip: { trigger: 'axis' },
       legend: { top: 0, textStyle: { color: '#999', fontSize: 11 } },
@@ -46,9 +58,17 @@ export default function FinancialAnalysisPage() {
         { name: '归母净利润', type: 'bar', data: reversed.map(d => d.net_profit), yAxisIndex: 0, itemStyle: { color: '#cf1322' } },
         { name: 'ROE', type: 'line', data: reversed.map(d => d.roe), yAxisIndex: 1, lineStyle: { color: '#1890ff' } },
       ],
-    })
-    return () => chart.dispose()
-  }
+    }, true)
+  }, [data])
+
+  // 离开页面时销毁实例。这里读 ref.current 而不是挂载时的快照——容器是
+  // 条件渲染的，组件挂载那一刻它还是 null。
+  useEffect(() => {
+    return () => {
+      const el = chartRef.current
+      if (el) echarts.getInstanceByDom(el)?.dispose()
+    }
+  }, [])
 
   function valDot(v: number | null): string {
     return v != null ? v.toFixed(2) : '--'
@@ -64,6 +84,16 @@ export default function FinancialAnalysisPage() {
       </div>
 
       {loading && <Spin size="large" style={{ display: 'block', margin: '60px auto' }} />}
+
+      {error && !loading && (
+        <Alert
+          type="error"
+          showIcon
+          message="财务数据获取失败"
+          description={error}
+          style={{ marginBottom: 16 }}
+        />
+      )}
 
       {data && !loading && (
         <>
@@ -84,7 +114,22 @@ export default function FinancialAnalysisPage() {
             size="small"
             scroll={{ x: 1300 }}
             columns={[
-              { title: '报告期', dataIndex: 'report_date', width: 100, fixed: 'left' as const },
+              {
+                title: '报告期',
+                dataIndex: 'report_date',
+                width: 110,
+                fixed: 'left' as const,
+                // 标出期别：中报的 EPS 是 6 个月累计，和年报口径不同，
+                // 光看日期容易拿去和年报直接比大小
+                render: (v: string, r: FinancialIndicator) => (
+                  <div>
+                    <div>{v}</div>
+                    {r.report_type && (
+                      <div style={{ fontSize: 11, color: '#999', lineHeight: 1.4 }}>{r.report_type}</div>
+                    )}
+                  </div>
+                ),
+              },
               { title: '每股收益', dataIndex: 'eps', width: 80, render: (v: number | null) => valDot(v) },
               { title: '每股净资产', dataIndex: 'bvps', width: 90, render: (v: number | null) => valDot(v) },
               { title: 'ROE(%)', dataIndex: 'roe', width: 80, render: (v: number | null) => valDot(v) },

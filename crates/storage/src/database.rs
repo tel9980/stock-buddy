@@ -40,6 +40,33 @@ impl Database {
     async fn run_migrations(&self) -> Result<()> {
         let sql = include_str!("../../../migrations/001_init.sql");
         sqlx::query(sql).execute(&self.pool).await?;
+
+        // 市场情绪日报相关表（stock_industry / daily_bar_cache / sentiment_daily）
+        let sql = include_str!("../../../migrations/002_sentiment.sql");
+        sqlx::query(sql).execute(&self.pool).await?;
+
+        // 定时任务运行记录（job_runs），供自动归档的可观测
+        let sql = include_str!("../../../migrations/003_jobs.sql");
+        sqlx::query(sql).execute(&self.pool).await?;
+
+        // 日线序列缓存的抓取记录（kline_series_meta），用于跳过重复抓取
+        let sql = include_str!("../../../migrations/004_kline_series.sql");
+        sqlx::query(sql).execute(&self.pool).await?;
+
+        // 自选股扩展字段：成本价 / 持股数（列可能已存在，忽略报错）
+        sqlx::query(
+            "ALTER TABLE watchlist ADD COLUMN cost_price REAL NOT NULL DEFAULT 0",
+        )
+        .execute(&self.pool)
+        .await
+        .ok();
+        sqlx::query(
+            "ALTER TABLE watchlist ADD COLUMN shares INTEGER NOT NULL DEFAULT 0",
+        )
+        .execute(&self.pool)
+        .await
+        .ok();
+
         tracing::info!("Database migrations completed");
         Ok(())
     }

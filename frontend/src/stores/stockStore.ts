@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { api, Quote, MarketOverview, SectorRank } from '../api';
+import { api, Quote, MarketOverview, SectorRank, WatchlistItem } from '../api';
 
 interface StockState {
   // 搜索
@@ -22,7 +22,7 @@ interface StockState {
   fetchSectorRanks: (type: string) => Promise<void>;
 
   // 自选股
-  watchlist: string[];
+  watchlist: WatchlistItem[];
   fetchWatchlist: () => Promise<void>;
   addStock: (code: string) => Promise<void>;
   removeStock: (code: string) => Promise<void>;
@@ -102,7 +102,7 @@ export const useStockStore = create<StockState>((set, get) => ({
       return;
     }
     try {
-      const quotes = await api.getQuotes(watchlist);
+      const quotes = await api.getQuotes(watchlist.map((w) => w.stock_code));
       set({ watchQuotes: quotes });
     } catch (e) {
       console.error('Failed to fetch watchlist quotes:', e);

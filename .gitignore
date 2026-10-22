@@ -5,6 +5,7 @@ Cargo.lock
 
 # Database
 data/
+python-sidecar/
 
 # Frontend
 frontend/node_modules/
@@ -19,3 +20,7 @@ logs/
 # IDE
 .idea/
 .vscode/
+.workbuddy/
+.neeko/
+.pi/
+.opencode/

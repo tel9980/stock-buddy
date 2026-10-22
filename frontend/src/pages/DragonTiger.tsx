@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { Card, Table, Tag, DatePicker, Spin, Empty, message } from 'antd'
 import { api, DragonTigerEntry, DragonTigerOverview } from '../api'
+import { usePersistedState } from '../stores/persistedState'
 import dayjs from 'dayjs'
 
 function colorNum(val: number): string {
@@ -15,7 +16,7 @@ function formatAmount(val: number): string {
 export default function DragonTigerPage() {
   const [overview, setOverview] = useState<DragonTigerOverview | null>(null)
   const [loading, setLoading] = useState(false)
-  const [date, setDate] = useState<string>('')
+  const [date, setDate] = usePersistedState('dragontiger.date', '')
   const userPicked = useRef(false)
 
   useEffect(() => { loadData() }, [])

@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { Card, Table, Tag, Spin, Tabs, Progress, Empty, message } from 'antd'
 import { api, LimitUpReview as LimitUpReviewData, LimitUpStock, BrokenBoardStock, LimitDownStock, ConsecutiveBoardTier } from '../api'
 
@@ -7,6 +8,7 @@ function colorPct(val: number): string {
 }
 
 export default function LimitUpReviewPage() {
+  const navigate = useNavigate()
   const [data, setData] = useState<LimitUpReviewData | null>(null)
   const [loading, setLoading] = useState(false)
 
@@ -72,7 +74,18 @@ export default function LimitUpReviewPage() {
                     { title: '连板', dataIndex: 'days', render: (v: number) => <Tag color="volcano">{v}板</Tag> },
                     { title: '数量', dataIndex: 'count', render: (v: number) => <strong>{v}</strong> },
                     { title: '股票', dataIndex: 'stocks', render: (stocks: LimitUpStock[]) => (
-                      <span>{stocks.map(s => `${s.name}(${s.code})`).join('、')}</span>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+                        {stocks.map(s => (
+                          <Tag
+                            key={s.code}
+                            color="orange"
+                            style={{ margin: 0, cursor: 'pointer' }}
+                            onClick={() => navigate(`/ai/diagnosis?code=${s.code}`)}
+                          >
+                            {s.name}({s.code})
+                          </Tag>
+                        ))}
+                      </div>
                     )},
                   ]}
                 />

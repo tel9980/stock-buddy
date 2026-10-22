@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-page-node-id="iNymDuHwIGAjwfZbbnE5rl">
+<head data-page-node-id="6G6Qz2QAu9lBnPjdt8EcOM">
+<meta charset="UTF-8" data-page-node-id="U2Efz7aRbsqWhWpwxLzWQG">
+<meta name="viewport" content="width=device-width, initial-scale=1.0" data-page-node-id="Isk7M6VGv0r4Yxl1JYxEq2">
+<title>阶段 4 方案 · 收盘后自动归档</title>
+<style>
+  :root{
+    --primary:#e8804e; --primary-light:#f5a67a; --primary-dim:rgba(232,128,78,.14);
+    --bg-dark:#0f0f17; --bg-surface:#1a1a2e; --bg-card:#16162a;
+    --border:#2a2a42; --text:#e8e8f0; --text-dim:#9a9ab0;
+    --up:#ef4444; --down:#22c55e; --warn:#f9c74f; --ok:#43b581;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg-dark);color:var(--text);
+    font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif;
+    line-height:1.7;padding:32px 20px;font-size:14px}
+  .wrap{max-width:1080px;margin:0 auto}
+  header{border-bottom:1px solid var(--border);padding-bottom:20px;margin-bottom:32px}
+  h1{font-size:24px;font-weight:600;margin-bottom:8px}
+  h1 .tag{font-size:12px;background:var(--primary-dim);color:var(--primary);
+    padding:3px 10px;border-radius:11px;margin-left:10px;vertical-align:middle;font-weight:500}
+  .sub{color:var(--text-dim);font-size:13px}
+  h2{font-size:17px;font-weight:600;margin:36px 0 14px;padding-left:11px;
+    border-left:3px solid var(--primary)}
+  h3{font-size:14px;font-weight:600;margin:22px 0 10px;color:var(--primary-light)}
+  p{margin-bottom:12px;color:#d5d5e2}
+  code{background:#0a0a14;border:1px solid var(--border);border-radius:4px;
+    padding:1px 6px;font-family:"SF Mono",Menlo,monospace;font-size:12.5px;color:var(--primary-light)}
+  table{width:100%;border-collapse:collapse;margin:14px 0;font-size:13px}
+  th{background:var(--bg-surface);color:var(--text-dim);text-align:left;
+    padding:9px 12px;font-weight:500;border-bottom:1px solid var(--border);font-size:12px}
+  td{padding:9px 12px;border-bottom:1px solid #22223a;vertical-align:top}
+  tr:last-child td{border-bottom:none}
+  .yes{color:var(--ok)} .no{color:var(--down)} .dim{color:var(--text-dim)}
+  .card{background:var(--bg-card);border:1px solid var(--border);
+    border-radius:9px;padding:18px 20px;margin:14px 0}
+  .card.hl{border-color:var(--primary);background:linear-gradient(180deg,rgba(232,128,78,.07),transparent)}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  .grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+  .stat{background:var(--bg-surface);border:1px solid var(--border);
+    border-radius:8px;padding:14px;text-align:center}
+  .stat .v{font-size:21px;font-weight:600;color:var(--primary)}
+  .stat .l{font-size:11.5px;color:var(--text-dim);margin-top:3px}
+  pre{background:#0a0a14;border:1px solid var(--border);border-radius:7px;
+    padding:15px 17px;overflow-x:auto;font-family:"SF Mono",Menlo,monospace;
+    font-size:12.5px;line-height:1.75;color:#c8c8dd;margin:12px 0}
+  pre .c{color:#5f5f7a} pre .k{color:var(--primary-light)} pre .s{color:var(--ok)}
+  .win{color:var(--ok)} .lose{color:var(--down)}
+  ul{margin:10px 0 12px 20px;color:#d5d5e2} li{margin-bottom:6px}
+  .bar{height:7px;background:#0a0a14;border-radius:4px;overflow:hidden;margin-top:6px}
+  .bar i{display:block;height:100%;border-radius:4px}
+  .note{background:rgba(249,199,79,.08);border-left:3px solid var(--warn);
+    padding:11px 15px;border-radius:0 7px 7px 0;margin:14px 0;font-size:13px}
+  .note b{color:var(--warn)}
+  .danger{background:rgba(239,68,68,.08);border-left:3px solid var(--up);
+    padding:11px 15px;border-radius:0 7px 7px 0;margin:14px 0;font-size:13px}
+  .danger b{color:var(--up)}
+  .step{display:flex;gap:14px;margin-bottom:16px}
+  .step .n{flex:0 0 26px;height:26px;border-radius:50%;background:var(--primary-dim);
+    color:var(--primary);display:flex;align-items:center;justify-content:center;
+    font-size:12.5px;font-weight:600;border:1px solid var(--primary)}
+  .step .b{flex:1}
+  .step .b h4{font-size:13.5px;margin-bottom:4px;color:var(--text)}
+  .step .b p{font-size:12.5px;color:var(--text-dim);margin:0}
+  footer{margin-top:44px;padding-top:18px;border-top:1px solid var(--border);
+    color:#5f5f7a;font-size:12px}
+</style>
+</head>
+<body data-page-node-id="rSL56U1jWcNIlK7CHDdHDO">
+<div class="wrap" data-page-node-id="OIi8TpIoTJ8GjWbO8vConv">
+
+<header data-page-node-id="9kv7EaSsaQNYkTpzgo0Qq8">
+  <h1 data-page-node-id="F8xh59tTXxSnILJPqcpEvU">阶段 4 · 收盘后自动归档<span class="tag" data-page-node-id="OuHCLDdB7d7lCf7JyilC23">方案分析 · 待确认</span></h1>
+  <div class="sub" data-page-node-id="RtnaFZAHK8yViZmA0EQgXl">stock-buddy · 情绪日报归档闭环 · 2026-09-02 · 本轮只出方案，确认后再动项目代码</div>
+</header>
+
+<h2 data-page-node-id="f6PjeLSHWRm2laota2iJzt">一、现状盘点</h2>
+
+<p data-page-node-id="EI70o3DFImGCpv5EW2GcSV">阶段 1–3 已交付「归档可发现 + 可管理 + 可留存」，但整条链路仍是<strong data-page-node-id="BdItgbVnXrJavbrBQcheRZ">被动的</strong>——必须有人打开页面才会生成。缺的是最后一环：让归档自己长出来。</p>
+
+<table data-page-node-id="PqY4BlGCUL5VnJQKLvUreu">
+  <tr data-page-node-id="JOzlFdbgupDljgVdVaSIHh"><th style="width:34%" data-page-node-id="pWtp5WHzjeCoobAMocFx7C">能力</th><th style="width:12%" data-page-node-id="CZO30chX7ZX24ZHNKoKU4C">状态</th><th data-page-node-id="NEy34NNKTMDZeU0DV8CRJj">说明</th></tr>
+  <tr data-page-node-id="xv551wUk5F69dwIGD9Gg1G"><td data-page-node-id="biAtWvtn28NHjq1uJ86Gj9">日报生成 <code data-page-node-id="6memsY8ss5uNaU6HbU49B1">build_daily</code></td><td class="yes" data-page-node-id="gl20QvB5yrfp1fM2t4375D">已有</td><td class="dim" data-page-node-id="sB8VhLwg6mZISyIEjnfD83">在 <code data-page-node-id="1OQcUvALkAEsylSe940IPK">crates/api/src/routes/sentiment.rs</code>，私有函数</td></tr>
+  <tr data-page-node-id="XuETRJ7nOEMK46hTDODLHt"><td data-page-node-id="EL7b4fHJR4kMtYU1xjJK3d">写库归档 <code data-page-node-id="yxLWPfYphGUnKxJzyYwNsv">sentiment_daily</code></td><td class="yes" data-page-node-id="u1iB8dpQK2lttL8MQPSChk">已有</td><td class="dim" data-page-node-id="tt4QN50tifPbYainC2vb7w">带 <code data-page-node-id="1gcSG4LzdFFpJleqAbalyv">is_degraded</code> 守卫，残缺不落库</td></tr>
+  <tr data-page-node-id="GhQdZ3nOAAGzI1tEmKrLDJ"><td data-page-node-id="ErsJAUob9rfGOey93fc1hQ">导出件落盘 <code data-page-node-id="wvOPfBkIsoGSFCfqInWdJX">data/reports/</code></td><td class="yes" data-page-node-id="gPUC2k8WVehF0xsLVADpau">已有</td><td class="dim" data-page-node-id="PPLuLdrIrDDtR7EvP68Z1f">仅在用户点「导出」时触发渲染</td></tr>
+  <tr data-page-node-id="CUBAgCYQ2JZjpO85BZQjLO"><td data-page-node-id="eqfLLgyrypPAkK1tNX9DXb">归档目录 + 前端抽屉</td><td class="yes" data-page-node-id="D9GSGtbEXAEHaH1JSzjy4a">已有</td><td class="dim" data-page-node-id="MmI7G4LovznMXhWDWQPcTf"><code data-page-node-id="mx4Ovai9pEAYttkUKbPVFU">GET /sentiment/dates</code> + 日历标记</td></tr>
+  <tr data-page-node-id="e4uxkEhwBjXTCEt9KJHsCc"><td data-page-node-id="bNXRGz1QlXIxuBHIHg0CmO"><strong data-page-node-id="Unw4r5P1AB0dqE2ObK9vek">无人访问时自动积累</strong></td><td class="no" data-page-node-id="GcroT5QtYAEsnZqrP02pHN">缺口</td><td class="dim" data-page-node-id="HDR6ez2gsOMNcOH3yAIzEO">今天（09-02）20:40 归档里仍无当日记录，数据其实早已落库</td></tr>
+  <tr data-page-node-id="olGrAvSPxrhfGPifazpKlE"><td data-page-node-id="O6Ys0YvbhisE0QP2GTCcOS"><strong data-page-node-id="h8nFv50cTJ9VKXDQU5cWD8">服务停机期间的历史缺口</strong></td><td class="no" data-page-node-id="bJ9MKvtKUkc0Abr8KI6REH">缺口</td><td class="dim" data-page-node-id="AWdrMFqhWJiPNqkBQ6zFnP">停三天就缺三天，且不会自动补</td></tr>
+  <tr data-page-node-id="8vw51N3cWp75Vy7Spu7m6F"><td data-page-node-id="1ydbXDRvv8QmWKUD1l9EUq">调度能力 <code data-page-node-id="SARC1jMwzd4nzLOwTrIoBJ">crates/scheduler</code></td><td class="no" data-page-node-id="xZmJptbKeg5Vvd17yIWWIJ">stub</td><td class="dim" data-page-node-id="yvAY7sO2reMbTJ6FivzWK8">仅 2 行：<code data-page-node-id="4zXtMAPADZHo0JJJUAlg4Z">pub struct Scheduler;</code></td></tr>
+</table>
+
+<div class="danger" data-page-node-id="y0KV8iVP95e8GmRFWucOcw">
+  <b data-page-node-id="CyDfUlWasGfnb1RYVzDfuB">今天就是一个现成的缺口样本。</b>09-02 是交易日，20:40 时东财行业数据已落库 127 条，但归档最新只到 09-01 —— 因为一整天没人打开情绪页。这正是自动归档要消灭的情况。
+</div>
+
+<h2 data-page-node-id="xHrU9a9nx517ZzOdOseVQN">二、四条核心决策</h2>
+
+<h3 data-page-node-id="AU7ARyIFL1uG28rFHpuT9f">决策 1 · 用「探测式触发」，不用固定时刻</h3>
+
+<p data-page-node-id="PLhUFtXL8ERAf7CJj8GCuj">最直觉的做法是定一个 crontab 式的「每交易日 15:30 跑一次」。我建议<strong data-page-node-id="q5EzxVq88nbQ7PwOUK6tdE">不这么做</strong>，改成轮询探测：</p>
+
+<pre data-page-node-id="DpgI2XxFek1O2NhOizZTvm"><code data-page-node-id="YVoR5xQcDKCKW8ZCZLjbuN"><span class="c" data-page-node-id="lxgajXC7EHxH2U3op0RN02">// 每 15 分钟一轮，全部条件满足才动手</span>
+<span class="k" data-page-node-id="mEPBgoSUvCgj4m5cHxsIPx">1.</span> 今天是周末？                    <span class="c" data-page-node-id="tVqBpJsuXhe7PkUMfv6DrT">→ 跳过（省掉 30% 的无效请求）</span>
+<span class="k" data-page-node-id="hELHjxoqW6sUPXkZbY0ePn">2.</span> fetch_latest_trade_date() == 今天？<span class="c" data-page-node-id="wfYkx4igMF5PYaRA5FbS6Q">→ 否则跳过（数据尚未落库）</span>
+<span class="k" data-page-node-id="bjG7xjoNumLbC1AfS224H3">3.</span> 归档里已有今天？                  <span class="c" data-page-node-id="YJTkiu5QDKooRvdYp57nG6">→ 有则跳过（幂等）</span>
+<span class="k" data-page-node-id="N10ax1K2QmYKO3IFaxJZsQ">4.</span> 生成 → 渲染 → 落盘</code></pre>
+
+<table data-page-node-id="egsOMsgP6gE74oWVy310f6">
+  <tr data-page-node-id="Y88A38gklgotbqvwVDOFz0"><th style="width:26%" data-page-node-id="Y3qKiKWpmd4PFcMKlEpHb4">维度</th><th style="width:37%" data-page-node-id="HGjiliCXk2P7KDagQDBGME">固定时刻（15:30）</th><th data-page-node-id="niSmOR1haRrPQsOI6k533H">探测式（推荐）</th></tr>
+  <tr data-page-node-id="kzuR9rpdjSugxqslCu7tue"><td data-page-node-id="NAz3yuadW5oSe2cQwjNalc">节假日</td><td class="lose" data-page-node-id="huIU7BHuCDZS6HozssaIWG">元旦/春节/国庆休市无规律，需维护日历表</td><td class="win" data-page-node-id="kObYHl2qXbdVTNlD2he01h">数据没落库 → 自动跳过，不需要日历</td></tr>
+  <tr data-page-node-id="rFASWP1Q4ZEvmt73GEvONm"><td data-page-node-id="vwnqSC9K8TmKq2Fpy9cCPv">服务当时没开</td><td class="lose" data-page-node-id="BMFGIvBBttCubLC3AHfusJ">直接错过，第二天也不会补</td><td class="win" data-page-node-id="rubLx2JT6fgYi7mdCbHxzD">下次启动自然补上</td></tr>
+  <tr data-page-node-id="7eIrcpVFKBtDGGPbDXgi4m"><td data-page-node-id="qlRGqDvDGbcCSMJoM8pFiY">东财延迟落库</td><td class="lose" data-page-node-id="7BVDKC3fFxZqsma4GZmC9D">15:30 跑可能拿到空数据</td><td class="win" data-page-node-id="QdAl9RCBVsjPZ7ClL90Oz2">数据落地了才跑</td></tr>
+  <tr data-page-node-id="LuuDf2GM8IP7kIQfBeV3q9"><td data-page-node-id="MMJ6vot3wxjb82XVYh0ztU">中途失败</td><td class="lose" data-page-node-id="PBrULhKqwCs9gpZ0Zw88iS">要自己写重试与退避</td><td class="win" data-page-node-id="TzJ09KYOW5AkcWM9f2KIaf">下一轮天然重试，带退避</td></tr>
+  <tr data-page-node-id="3NwnwKfF2JdpCEkaFv2wKv"><td data-page-node-id="aH4hSFJ10TJHmSwcWg9N3u">请求开销</td><td class="win" data-page-node-id="bOaGQnUWoZsHftwH1JWWrN">每天 1 次</td><td class="dim" data-page-node-id="w6laTjKMVcCvJQVIzVkGb1">每天约 36 次探测，每次 1 个轻量请求</td></tr>
+</table>
+
+<p data-page-node-id="4N3uqH6BKew8F3uEg6M5On">探测成本可以接受：<code data-page-node-id="muJlTKcNkDF9nCEMub3Ejc">fetch_latest_trade_date()</code> 只取 1 行。实测今天 20:40 的返回值可作为判据验证——<code data-page-node-id="d0Z78C1wGkGP9UuHNwLHj1">TRADE_DATE = 2026-09-02</code>，行业清单 <code data-page-node-id="ZLp92jQBaDeLqKzTkDOwFH">RPT_VALUEINDUSTRY_DET</code> 返回 <strong data-page-node-id="J3qOGzID85BnNqXzjeI26V">127 条</strong>，两个信号都指向「数据已定稿」。</p>
+
+<h3 data-page-node-id="A4XRWcaafE97a7S663OoJh">决策 2 · scheduler 管「何时跑」，api 管「跑什么」</h3>
+
+<p data-page-node-id="X85B04i0MzrfBt2l0VSN5q">这是本轮最需要斟酌的架构问题。先看依赖现状：</p>
+
+<pre data-page-node-id="oBmQVga0FCO64rbWWn8uLt"><code data-page-node-id="h75ffXZcsxJfUGLuXcTtph">appcore  <span class="c" data-page-node-id="OBfxPEaMzbhODY3dBjBFkR">← 叶子</span>
+fetcher  → appcore
+storage  → appcore
+analyzer → appcore, fetcher, indicators   <span class="c" data-page-node-id="92SN32VtXHPtE2dntZjOtq">← 注意：不依赖 storage</span>
+scheduler→ appcore, fetcher, storage      <span class="c" data-page-node-id="ekxX3AKxVov3A00pQfztIm">← 注意：不依赖 analyzer / api</span>
+api      → 全部</code></pre>
+
+<p data-page-node-id="GByFWHpB8IU61PZGABrRmE">而 <code data-page-node-id="flTvo2JLACUif2Dd3VuNoV">build_daily</code> 需要三样东西：<code data-page-node-id="0MJr0it6NnWcGfxfOxI0ax">Arc&lt;EastmoneyFetcher&gt;</code>、<code data-page-node-id="k7qYqgFE70rJMgnayBSo6r">storage::Database</code>、以及渲染用的 <code data-page-node-id="XhCG0tNHJ1e0yxGIUlsNEt">sentiment_report::render</code> —— <strong data-page-node-id="JEpHhrey5LvKUQCfCybHKW">全都在 api 里</strong>。于是有三条路：</p>
+
+<table data-page-node-id="OgawF9UOg6DzbYLvMfVgBA">
+  <tr data-page-node-id="DDK7quFXrrJxH8e2J2kq3z"><th style="width:8%" data-page-node-id="hR2EsoYBK9UuhClKzSL7r4">方案</th><th style="width:30%" data-page-node-id="bKeGIfNFW0F2WevIhIWTtN">做法</th><th style="width:31%" data-page-node-id="AasvcWBlrwWW2hMWQhVGIo">代价</th><th data-page-node-id="zDYmy5D8poFOewFrL8mBvv">评价</th></tr>
+  <tr data-page-node-id="uR6bfd9PDGeuwfyt9RCwk5"><td data-page-node-id="8KwmmPMCBwK7Qd6ODcralM">A</td><td data-page-node-id="Bsf1fBSCUuYd6lHakYFGXf">把 <code data-page-node-id="ggsPO3Ekyhe0iW1A8jIVge">build_daily</code> 下沉到 analyzer</td><td class="lose" data-page-node-id="vaG1tL9N8cwq3VPc54lgE8">需给 analyzer 加 storage 依赖，分析层变存储感知</td><td class="dim" data-page-node-id="Hc7ekOGgrFLJMAig9MYPhe">分层变脏</td></tr>
+  <tr data-page-node-id="kVWnMOvQaakVvEnECCtRVM"><td data-page-node-id="GauvCKoXh1qOE8LEFdsUay">B</td><td data-page-node-id="UgvL6FhiLeHhzdzciGBvv0">新建 <code data-page-node-id="SaB54RhddXd7nv6zLSZK1v">crates/reports</code> 承载编排</td><td class="dim" data-page-node-id="FB9ggaDqASRgwKTdE91hpN">分层最干净，但多一个 crate</td><td class="dim" data-page-node-id="SevcxyQ3uowNdkqILHJeKC">为一个功能建 crate，偏重</td></tr>
+  <tr data-page-node-id="yOT4t26TNLZyZyf9lKqwnx"><td data-page-node-id="2NbkdZkFUj3TunaJ22NGZb"><strong data-page-node-id="UaNXYnqlmQeyOKDzLGORcz">C</strong></td><td data-page-node-id="OLeHEyEnB09WQDsbtD3u5A"><strong data-page-node-id="OjDJuJmJ7vEuyBCc9PdAfu">scheduler 只做引擎，任务体由 api 注入</strong></td><td class="win" data-page-node-id="QplxMslFDF9lzyu7ZZX9VT">零依赖改动，零搬迁</td><td class="win" data-page-node-id="EyCQr0C1IcCIzO2GLlsGSU">推荐</td></tr>
+</table>
+
+<div class="card hl" data-page-node-id="6ieYXgicXvmWqJUtfouxrZ">
+  <strong data-page-node-id="7V1nLMebuCaMWS2nS071Sk">方案 C 的分工：</strong><code data-page-node-id="LURsmdLNFx3GSUNMzLpAyT">scheduler</code> 提供 tick 循环、交易日探测、任务注册与并发保护；<code data-page-node-id="x3LV9WUpElm4sx5oxSw7A8">api</code> 在启动时注册一个闭包，闭包内部调用现成的 <code data-page-node-id="N8dmsVDyHnl1HPHLv6CsYq">build_daily</code> + <code data-page-node-id="YfLc9PL5ODXsSEoWBFVyPo">render</code> + 落盘。两者都待在各自已有的依赖边界内。
+</div>
+
+<p data-page-node-id="3JGvT9Ef0gamTQS2k5MYaB">额外的好处是这个引擎是<strong data-page-node-id="jxAcF8mA5tEaFYpMBV8qhZ">通用的</strong>：未来做T 提醒、自选股告警、行业轮动快照，都能挂到同一个 tick 上，符合你一贯的「通用化方案、避免逐页硬编码」。</p>
+
+<h3 data-page-node-id="T1OMLNLp50WFhRfdIlkp7y">决策 3 · 并发与失败</h3>
+
+<table data-page-node-id="DG9KFevw7aBFC0n2irlrhM">
+  <tr data-page-node-id="wx8BGyQHIBcLvuTl1wnX3C"><th style="width:26%" data-page-node-id="xLCF5pi9qHMffsPa3JohLj">场景</th><th style="width:37%" data-page-node-id="GH5YP1fgoCUCHiweUmHzSt">不处理会怎样</th><th data-page-node-id="yUxgjEmJZkq2xavPS1DEwa">对策</th></tr>
+  <tr data-page-node-id="gFiLpzif2oVzfuZDnY8mbg"><td data-page-node-id="FMg4EoDJG6NmlTaSyHzpcP">定时任务与用户手点撞车</td><td class="lose" data-page-node-id="b6kQKgBnBoJ6ly0PF8469y">两次各 5,600 次抓取 → 必然触发限流</td><td class="win" data-page-node-id="A8ZacTFL6B10n5ffaTi2kj">进程内日期锁 <code data-page-node-id="1LNAEBUCNk7TcxolYbSgkU">Mutex&lt;HashSet&lt;String&gt;&gt;</code>，同一日期只跑一个</td></tr>
+  <tr data-page-node-id="0P9lvsXqTJ7CstFiKxdSdq"><td data-page-node-id="M0xLddvwc2sAzwOfugUcYw">上游限流返回残缺数据</td><td class="dim" data-page-node-id="YD6sXyN2ICs3OFilvl6aG1">已有守卫，不落库</td><td class="win" data-page-node-id="dsGGhFFE9rKuTDvJIM9Ghg">沿用 <code data-page-node-id="1zgFhE6mlOwx7L0oP7P3q2">is_degraded</code>，下一轮自动重试</td></tr>
+  <tr data-page-node-id="04TSluYU3kwhTJKnQaFE5v"><td data-page-node-id="4XUQrhfglXx9dHjLcs5T7P">网络抖动</td><td class="lose" data-page-node-id="0kVUvMT33hSRaVXGL90E1c">可能白跑一轮</td><td class="win" data-page-node-id="7GX6wFbs1J68wYUXxa1NVi">不重试当次，等下一 tick（15 分钟后），天然退避</td></tr>
+</table>
+
+<h3 data-page-node-id="Y4n4DHNTEqovCTpr5ZE0S3">决策 4 · 补跑与留存</h3>
+
+<p data-page-node-id="cD7g9ht79zgZc255y8Laj2"><strong data-page-node-id="CBmkzsHDrq6LpL5TF5dfde">启动补跑</strong>：服务起来时回溯最近 N 个交易日（默认 3），把缺失的补上。这样长假回来不会留一屏空洞。必须串行 + 间隔，否则连续几天各 5,600 次抓取会直接把行情源打挂。</p>
+
+<p data-page-node-id="ndPyX7U1CS7jG2lcqioKBz"><strong data-page-node-id="EGlUM3vXgUChpbuEBwD0Dg">存储增长</strong>：需要提前看一眼，因为自动归档会让缓存表每天稳定增长。</p>
+
+<div class="grid3" data-page-node-id="WC5izqzuKGhw6yxPD66Ths">
+  <div class="stat" data-page-node-id="D63ShtFPAUG5i4880ZPeZm"><div class="v" data-page-node-id="Ypy9eV2NfpLFVKtCOJrkk5">27,715</div><div class="l" data-page-node-id="E7AK8JFGUdbkNSlmDPfRTK">daily_bar_cache 当前行数</div></div>
+  <div class="stat" data-page-node-id="EQdSZQ5wm1BuDAhF0gyL3x"><div class="v" data-page-node-id="1C9tkBNh7g8DUhWhg4aWO8">~5,600</div><div class="l" data-page-node-id="WHXj4oum4Y4NddjxaRClDj">单日新增行</div></div>
+  <div class="stat" data-page-node-id="CImebPijigDhxrHiS2GptG"><div class="v" data-page-node-id="y1Co5gRoyqd4341VBrHbBB">~160 MB</div><div class="l" data-page-node-id="Vnbx3U4987wHT6kyYrauMg">按 244 交易日/年推算</div></div>
+</div>
+
+<p class="dim" style="margin-top:10px;font-size:12.5px" data-page-node-id="8othZ3K2s6HZnn2RGdECtm">当前库 3.4 MB / 5 个交易日，实测约 120 字节每行。年增 137 万行、约 160 MB 不算失控，但既然是无人值守的长跑进程，建议顺带加一条保留策略（只留最近 250 个交易日），避免一年后回来发现库涨到几百 MB。</p>
+
+<h2 data-page-node-id="hB11clA56JA9Fzs1yNYB5J">三、实测数据（支撑上面的设计）</h2>
+
+<p data-page-node-id="sBHxBqbHhEGUGgZgKyiD71">为确定调度器的时间预算，我实测了同一交易日（2026-09-02）走两条路径的成本：</p>
+
+<table data-page-node-id="f3hwSKYJARpRPh1TMCLY5L">
+  <tr data-page-node-id="oR2TcaRdcEWolzbEd5ygNu"><th style="width:22%" data-page-node-id="DoKc5RoES57FurgiV1rj6Q">路径</th><th style="width:13%" data-page-node-id="F5kpZkjMetaUMMFSrqTrwV">耗时</th><th style="width:15%" data-page-node-id="w7M83BORtnwicgRHD3ztdh">覆盖只数</th><th data-page-node-id="ty3e19wVs2bp3Dpr6IowIY">结果</th></tr>
+  <tr data-page-node-id="SSfADWUs32AhF5a1oxv0Sq"><td data-page-node-id="b2a9KcXTsr5UdRTWw2kkw1">快路径（东财官方口径）</td><td data-page-node-id="clf44GygTNjM2jDSrtHe1O"><strong data-page-node-id="2MI3HNXpQzIQSCTmJ8xHea">23.1 s</strong></td><td data-page-node-id="TLrKYzMjS3l9FFlX4dt5O2">5,188</td><td class="win" data-page-node-id="YECoinTjsRvnfcA1AyJRqV">干净，无失败记录</td></tr>
+  <tr data-page-node-id="Rb3wtXOGSLvIsIaW9Omuoj"><td data-page-node-id="q7hRBz5vDiImENvD3gOQf1">慢路径（逐股聚合）</td><td data-page-node-id="2ry2R26xKtpWu5rvIIrzaU"><strong data-page-node-id="0Sfu4KtBrwLSKiTQHflsBT">109.8 s</strong></td><td data-page-node-id="SrO8lgUmCoSCKB8z9b8gSB">5,285</td><td class="lose" data-page-node-id="1Slw6S0ckFxEL4dO3OOTMr">340 只抓取失败（限流），且仍被判定完整而落库</td></tr>
+  <tr data-page-node-id="F640sU3ntBhaGvvMmM62Us"><td data-page-node-id="vi3grLcFGF9U5uqOxv9Mlb">缓存命中</td><td data-page-node-id="AKnO83h5eyshBovdhxn1VB"><strong data-page-node-id="5GGoNeSrRChhnoZgf1VFZV">0.006 s</strong></td><td data-page-node-id="h2rJn0hQTqORMob21FyDjU">—</td><td class="win" data-page-node-id="SC5ctcfj4SnIyJlgtnjhTB">快三个数量级</td></tr>
+</table>
+
+<h3 style="margin-top:22px" data-page-node-id="9NmwiXtEjK00nBljxpYald">快路径那 23 秒花在哪</h3>
+<table data-page-node-id="uE5V8MGr7DPrK7wxC0kkpL">
+  <tr data-page-node-id="3ENzpQ8zdyf1GhH5dwtxJ0"><th style="width:40%" data-page-node-id="YtiLKanTw7tGzufMAVSXhw">环节</th><th style="width:16%" data-page-node-id="bXk9D5bmfUyOaRfaskYHpn">耗时</th><th data-page-node-id="OSzSkGY9mkih2dcfXs7JyQ">说明</th></tr>
+  <tr data-page-node-id="bPg94exCHtFOJw7LvrpSXX"><td data-page-node-id="gLaL1tARrkSMwGoc2TYzcG">全市场快表 <code data-page-node-id="S5MJjQRIeQC5GNHUDe3ae8">RPT_DMSK_TS_STOCKNEW</code></td><td data-page-node-id="MXMjKwBB8CQGeZddIfQa8F">≈ 13 s</td><td data-page-node-id="PcAJM7oStsLpPU2HeUpXlP">瓶颈：5,196 条按 500/页<strong data-page-node-id="jaPQ39kqIz2cVNJE9EpEQj">串行</strong>翻 11 页，实测每页 1.0–1.4 s</td></tr>
+  <tr data-page-node-id="uiWMHBx40Xii1TA70MJqfI"><td data-page-node-id="xBYxkGk8nXB3QBE9Jx3MxM">板块快照 <code data-page-node-id="29Ter28X0BvbbkYZUAMncM">push2delay clist</code></td><td data-page-node-id="KjgAzLA3mmX1Wi4PDYFEZ6">≈ 1 s</td><td data-page-node-id="OFOJYJMifAnKHpwyYSmMVf">2 页 + 80 ms 间隔</td></tr>
+  <tr data-page-node-id="DNKps7ejwzrDAoTCUJAL6j"><td data-page-node-id="YeMHoAa9QCfZoOq3T2EJvw">龙虎榜 / 题材 / 行业清单 / 指数</td><td data-page-node-id="HCIEyhxIoj5ST9fple3q3S">≈ 9 s</td><td data-page-node-id="N6OGlMBXE8pxcNBugEDjJy">其中指数解析当天有告警</td></tr>
+</table>
+
+<div class="note" data-page-node-id="nW8tVoxe1BGwRFVgllgEW5">
+  <b data-page-node-id="khelsZDTRysULNBl9d9YQ3">顺带发现一个真问题（建议同轮修）。</b>今天 12:44 快路径第一步 <code data-page-node-id="mYKPjByWYk38dByRJUP8Ue">fetch_board_snapshots</code> 报 <code data-page-node-id="qP1lnPqnLIjXaGqKpKUYJf">error decoding response body</code>，导致整条快路径放弃、回落到 110 秒慢路径并触发 340 只限流。20:49 重试则正常——说明是<strong data-page-node-id="znABFSXT5qEXDaLuKCIY9p">间歇性故障</strong>。<br data-page-node-id="g9e1OLNhXJ5Fb4Qu3GAH2k">
+  排查已排除压缩问题：<code data-page-node-id="mkFXswsHt0rc6wfxdTGrQn">Cargo.lock</code> 里没有 <code data-page-node-id="RHEeT715YO7L90UOjQGBCM">async-compression</code>，reqwest 未启用 gzip，服务端对不声明编码的请求返回未压缩内容且无 <code data-page-node-id="DzFUAw3FdUjnzt3TuGsGIc">Content-Encoding</code> 头。更像连续翻页触发的连接重置。<br data-page-node-id="bTmDYoEAswreGyo9pGPzz0">
+  <strong data-page-node-id="0xUFvyOXKfVr6mKnA9rZZ7">对定时任务的杀伤在于</strong>：无人值守时偶发一次，就会变成「每晚 110 秒 + 限流 + 一份残缺日报被缓存」。建议在快照与快表请求上加一次重试（约 10 行改动），把 23 秒这条路径稳住。
+</div>
+
+<h2 data-page-node-id="7wAiem2uIpDeAokMbmvfxe">四、实施步骤</h2>
+
+<div class="step" data-page-node-id="98Ndp3sydIAPZecyHwlQZH">
+  <div class="n" data-page-node-id="Lo68bLBGQ5hT7ZEwGezeGK">1</div>
+  <div class="b" data-page-node-id="WWdxwBbTCQozTfXqq7PczP">
+    <h4 data-page-node-id="pwaaUYnTEyZGcXCAAEJkly">scheduler 引擎</h4>
+    <p data-page-node-id="KoouME5s3mICN9wU8hTMA2">tick 循环 + 交易日探测 + 任务注册。纯时间逻辑，不碰业务。附单测：周末跳过、非交易日跳过、幂等跳过。</p>
+  </div>
+</div>
+<div class="step" data-page-node-id="E6dfbRHfQpQta1hw7SJECT">
+  <div class="n" data-page-node-id="MLI5QruT8rfGw03tBjZHqs">2</div>
+  <div class="b" data-page-node-id="KTtorUN0o4vmTObjguCBly">
+    <h4 data-page-node-id="RfHKNZX6aX4Awnr8GgsdWN">api 注入任务体</h4>
+    <p data-page-node-id="6suL7KxVnt2xIGZiPh98FP">闭包内调用 <code data-page-node-id="fFwvXDCvnEH5YATcMgxjSw">build_daily</code> → <code data-page-node-id="ET37YqohV3nqpxzCn0Kp7z">render</code> → 写 <code data-page-node-id="xgAbEiEt8r9o55nhi1z7FW">data/reports/</code>，让自动归档同时产出导出件（渲染仅 0.004 s，顺手把 <code data-page-node-id="IUNtR3BKjHHja6MXTaCOAA">has_export</code> 点亮）。加进程内日期锁。</p>
+  </div>
+</div>
+<div class="step" data-page-node-id="pagBijP5bOSN4CZZLt4qk5">
+  <div class="n" data-page-node-id="bIMAqHHatOQDo5U0xEPLZg">3</div>
+  <div class="b" data-page-node-id="HJJKYnQIGaUMvZGcY4TP4b">
+    <h4 data-page-node-id="q2dCtPM0AOsbFDdkUO87L6">配置与可观测</h4>
+    <p data-page-node-id="hgt7vtZYlibzFxCYoQE94o">环境变量开关（<code data-page-node-id="o7s980aiPOTX3xYxFdqHO2">AUTO_ARCHIVE</code> / 间隔 / 补跑天数）；<code data-page-node-id="neoaQCSvkv4qm7emD9gReK">job_runs</code> 表记录每次运行；启动补跑串行执行。</p>
+  </div>
+</div>
+<div class="step" data-page-node-id="hFt9A5SIBX6eCOqGjePdnA">
+  <div class="n" data-page-node-id="oBwMVAzk9FOlrWLXtB3ysg">4</div>
+  <div class="b" data-page-node-id="tQSP4nZeFQHX4NFXgGgid8">
+    <h4 data-page-node-id="t85fHx7i5VZdkIOozulDFY">前端接入</h4>
+    <p data-page-node-id="au4mufxEb61HUnAWEZ5K8k">归档抽屉顶部显示「上次自动归档：09-02 15:32（23 秒，成功）」，失败时给出可见提示而不是只写日志。</p>
+  </div>
+</div>
+
+<p class="dim" style="font-size:12.5px" data-page-node-id="GVv15zwTundHFUNCbOIJ7c">可选同轮：给快路径的快照/快表请求加一次重试（见上节黄框）。</p>
+
+<h2 data-page-node-id="8P8HTSQHdrOZHzVT9oOs4s">五、风险与对策</h2>
+
+<table data-page-node-id="hFH5gnqL6Dp4jaZpgBOHJ6">
+  <tr data-page-node-id="J8I6H1ASddQGIqPVYsWATe"><th style="width:26%" data-page-node-id="RXbnqegHprNYp7cKxe8FR6">风险</th><th style="width:14%" data-page-node-id="fo8VyI9DXqydjstvjzFjAh">概率</th><th style="width:30%" data-page-node-id="oGLgY9Ie8D87ctZY23xxsf">影响</th><th data-page-node-id="EshaB1wotvom7ku8mpu9BW">对策</th></tr>
+  <tr data-page-node-id="JjDQzz7L8e2sRWIyMi8Rms"><td data-page-node-id="J8HLpgw8mJEzSY3wgOtykQ">快路径间歇失败回落慢路径</td><td class="lose" data-page-node-id="BEFc1YT1rf8TZOl50tiTUT">已发生 1/2</td><td data-page-node-id="tCDcRPUc2w50lwwJNVCPE1">110 s + 限流 + 残缺日报落库</td><td class="win" data-page-node-id="qgcECh5RT1rORkyTf1fxlj">重试一次；慢路径失败率超阈值时不落库</td></tr>
+  <tr data-page-node-id="BAULfwTNbHprvYAdXjokHC"><td data-page-node-id="9pSCq1fhWOoSWdwBHmN1Pb">补跑多天打爆行情源</td><td class="dim" data-page-node-id="ACIlMXA4tX0Y9BwTc03bM5">中</td><td data-page-node-id="4GrMKMsneLbCeHFwNp6pvD">连续限流，数据更差</td><td class="win" data-page-node-id="fKeh7bG7sEIuzvrxfNNReN">串行 + 间隔 + 上限 3 天</td></tr>
+  <tr data-page-node-id="vKltEC7p4FdQLFHIWmocfZ"><td data-page-node-id="udGEoos8YDOjHeSJoAWBY3">与用户手动请求撞车</td><td class="dim" data-page-node-id="ECz1T9CfRURyGCLF17s2nI">低</td><td data-page-node-id="IZiEeEsb1s6001z4LjlK2A">双倍抓取</td><td class="win" data-page-node-id="lCu2PJpUuPnKW2lRJbjFTK">进程内日期锁</td></tr>
+  <tr data-page-node-id="Vkz5tdJfO7larwZgjahUZV"><td data-page-node-id="t4qtjs5Vyih2mMrxYSzQoP">库持续增长</td><td class="dim" data-page-node-id="mpzLTID4LlWYchC8TnJgzd">确定</td><td data-page-node-id="X3FlSir0vq8Vga5Rqw8rBo">约 160 MB/年</td><td class="win" data-page-node-id="EG93QmEibBGzQ7dkxRCO4a">保留最近 250 个交易日</td></tr>
+  <tr data-page-node-id="fENpvAlFJHVyc8P3LDGoR0"><td data-page-node-id="eRbuVIPYBCKbq4woUxLdIj">探测请求被东财限流</td><td class="dim" data-page-node-id="PnJXxThBHGTjSJd9K8A8MT">低</td><td data-page-node-id="H9a23mTi3B7lKqORVSkkTm">交易日判定失效</td><td class="win" data-page-node-id="a2JlE90uToLwOwWsyFUgHE">探测失败按「无数据」处理，下一轮再试</td></tr>
+</table>
+
+<h2 data-page-node-id="ICeVOQe1qyeY6i0dRFbmG1">六、验收标准</h2>
+<ul data-page-node-id="H5FRVZtNuhwm9w95CPx6AA">
+  <li data-page-node-id="NbkksfgVQHb4gMeO51DduF"><code data-page-node-id="YbaUP18M4xrBT4y3H1Lljx">AUTO_ARCHIVE=off</code> 时行为与现在完全一致（默认可关）</li>
+  <li data-page-node-id="Lq83nFncdtx98RRRiNbY7x">开启后，服务在收盘后启动 → 15 分钟内自动补齐当日归档，且 <code data-page-node-id="3BgtElVNsHETVRNCsxdDBG">has_export</code> 为 true</li>
+  <li data-page-node-id="rVmKDnyfMUK0HjR2wAAxma">已有归档的日期重复触发 → 不再重新生成（日志可见「已存在，跳过」）</li>
+  <li data-page-node-id="8rSrwkFnivQL2Rbm47H54p">周末 / 非交易日 → 不产生任何抓取请求</li>
+  <li data-page-node-id="GD6pPJm7FbBlWhYnRbVwtC">删除某日归档后重启 → 补跑只补该日，不重复生成已有日期</li>
+  <li data-page-node-id="DpgqHCdXLCJqeTIzuljd8j">手动请求与定时任务同时触发 → 只有一份在跑</li>
+  <li data-page-node-id="UXFHBpaTy1FRKzcm5f7UPT"><code data-page-node-id="dGFz0qr8Q5eRh8oHesyOSH">cargo test --workspace</code> 全绿，含新增的调度逻辑单测</li>
+</ul>
+
+<footer data-page-node-id="84tpx0TsIUaAKDea9aEm0f">
+  stock-buddy · 阶段 4 方案分析 · 生成于 2026-09-02 · 本轮未修改任何项目代码<br data-page-node-id="H0UyYWsoBvUJq2YvFLS47v">
+  诊断副作用：过程中已生成 2026-09-02 的日报归档（快路径，5,188 只，无失败记录），可按需用 DELETE 接口移除。
+</footer>
+
+</div>
+</body>
+</html>

@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import MarkdownView from '../components/MarkdownView';
 import { api } from '../api';
+import { usePersistedState } from '../stores/persistedState';
 
 interface Message {
   role: 'user' | 'assistant';
@@ -9,7 +10,8 @@ interface Message {
 
 export default function AiChat() {
   const [messages, setMessages] = useState<Message[]>([]);
-  const [input, setInput] = useState('');
+  // 只持久化输入框草稿；对话记录由后端 ai_history 落库，不重复存 localStorage
+  const [input, setInput] = usePersistedState('ai.chat.draft', '');
   const [loading, setLoading] = useState(false);
   const [streamingContent, setStreamingContent] = useState('');
   const [error, setError] = useState('');

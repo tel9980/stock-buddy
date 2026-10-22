@@ -263,6 +263,61 @@ body {
   color: #9090a8;
 }
 
+/* ========== antd Tabs 暗色主题适配 ========== */
+.ant-tabs .ant-tabs-tab {
+  color: var(--text-dim);
+}
+.ant-tabs .ant-tabs-tab:hover {
+  color: var(--text);
+}
+.ant-tabs .ant-tabs-tab.ant-tabs-tab-active .ant-tabs-tab-btn {
+  color: var(--primary);
+}
+.ant-tabs .ant-tabs-tab-btn {
+  color: inherit;
+}
+.ant-tabs .ant-tabs-ink-bar {
+  background: var(--primary);
+}
+.ant-tabs .ant-tabs-nav::before {
+  border-bottom-color: var(--border);
+}
+
+/* ========== 标题文字可读性优化 ========== */
+h1, h2, h3, h4, h5, h6 {
+  color: var(--text);
+}
+.ant-card-head-title {
+  color: var(--text) !important;
+}
+.ant-table-wrapper .ant-table-thead > tr > th {
+  color: var(--text-dim) !important;
+}
+
+/* ========== antd Table 暗色主题微调 ========== */
+.ant-table-wrapper .ant-table {
+  background: var(--bg-surface);
+  color: var(--text);
+}
+.ant-table-wrapper .ant-table-thead > tr > th {
+  background: var(--bg-surface-light);
+  color: var(--text-dim);
+  border-bottom-color: var(--border);
+}
+.ant-table-wrapper .ant-table-tbody > tr > td {
+  border-bottom-color: var(--border);
+  color: var(--text);
+}
+.ant-table-wrapper .ant-table-tbody > tr:hover > td {
+  background: rgba(232, 128, 78, 0.08) !important;
+}
+.ant-table-wrapper .ant-table-cell.ant-table-cell-row-hover {
+  background: rgba(232, 128, 78, 0.08) !important;
+}
+.ant-table-wrapper .ant-table-row-selected > td {
+  background: rgba(232, 128, 78, 0.12) !important;
+}
+
 /* ========== AI 研判页面样式 ========== */
 
 /* AI 按钮 */
@@ -303,67 +358,77 @@ body {
   min-height: 400px;
 }
 
-/* AI 报告 Markdown 内容 */
-.ai-report-content {
+/* ========== Markdown 统一样式（所有 AI 输出场景共用） ========== */
+.markdown-body {
   font-size: 0.9rem;
   line-height: 1.75;
   color: var(--text);
+  word-wrap: break-word;
 }
-.ai-report-content h1,
-.ai-report-content h2,
-.ai-report-content h3 {
+.markdown-body > *:first-child { margin-top: 0; }
+.markdown-body > *:last-child { margin-bottom: 0; }
+.markdown-body h1,
+.markdown-body h2,
+.markdown-body h3,
+.markdown-body h4,
+.markdown-body h5,
+.markdown-body h6 {
   color: var(--primary);
   margin-top: 20px;
   margin-bottom: 10px;
   font-weight: 700;
   line-height: 1.4;
 }
-.ai-report-content h1 { font-size: 1.25rem; }
-.ai-report-content h2 { font-size: 1.12rem; }
-.ai-report-content h3 { font-size: 1rem; }
-.ai-report-content p { margin-bottom: 12px; }
-.ai-report-content ul,
-.ai-report-content ol {
-  margin-bottom: 12px;
+.markdown-body h1 { font-size: 1.25rem; }
+.markdown-body h2 { font-size: 1.12rem; }
+.markdown-body h3 { font-size: 1rem; }
+.markdown-body h4 { font-size: 0.95rem; }
+.markdown-body p { margin: 10px 0; }
+.markdown-body ul,
+.markdown-body ol {
+  margin: 10px 0;
   padding-left: 24px;
 }
-.ai-report-content li { margin-bottom: 6px; }
-.ai-report-content strong { color: var(--text); font-weight: 700; }
-.ai-report-content table {
+.markdown-body li { margin: 4px 0; }
+.markdown-body ul li { list-style: disc; }
+.markdown-body ol li { list-style: decimal; }
+.markdown-body strong { color: var(--text); font-weight: 700; }
+.markdown-body em { font-style: italic; }
+.markdown-body del { text-decoration: line-through; color: var(--text-dim); }
+.markdown-body table {
   width: 100%;
   border-collapse: collapse;
   margin: 12px 0;
+  font-size: 0.85rem;
 }
-.ai-report-content th,
-.ai-report-content td {
+.markdown-body th,
+.markdown-body td {
   padding: 8px 12px;
   border: 1px solid var(--border);
   text-align: left;
-  font-size: 0.85rem;
 }
-.ai-report-content th {
+.markdown-body th {
   background: var(--bg-surface-light);
   color: var(--text-dim);
+  font-weight: 600;
 }
-.ai-report-content blockquote {
+.markdown-body blockquote {
   border-left: 3px solid var(--primary);
-  padding-left: 16px;
+  padding: 4px 0 4px 16px;
   margin: 12px 0;
   color: var(--text-dim);
+  background: rgba(232, 128, 78, 0.05);
+  border-radius: 0 6px 6px 0;
 }
-.ai-report-content div {
-  margin-bottom: 12px;
-}
-.ai-report-content div:last-child {
-  margin-bottom: 0;
-}
-.ai-report-content code {
+.markdown-body blockquote p { margin: 4px 0; }
+.markdown-body code {
   background: var(--bg-surface-light);
   padding: 2px 6px;
   border-radius: 4px;
   font-size: 0.85rem;
+  font-family: "JetBrains Mono", "Fira Code", Menlo, Consolas, monospace;
 }
-.ai-report-content pre {
+.markdown-body pre {
   background: var(--bg-surface-light);
   border: 1px solid var(--border);
   border-radius: 8px;
@@ -373,26 +438,33 @@ body {
   font-size: 0.82rem;
   line-height: 1.5;
 }
-.ai-report-content pre code {
+.markdown-body pre code {
   background: transparent;
   padding: 0;
+  font-size: inherit;
 }
-.ai-report-content a {
+.markdown-body a {
   color: var(--primary);
   text-decoration: none;
 }
-.ai-report-content a:hover {
+.markdown-body a:hover {
   text-decoration: underline;
 }
-.ai-report-content hr {
+.markdown-body hr {
   border: none;
   border-top: 1px solid var(--border);
   margin: 16px 0;
 }
-.ai-report-content img {
+.markdown-body img {
   max-width: 100%;
   border-radius: 8px;
 }
+.markdown-body input[type="checkbox"] {
+  margin-right: 6px;
+  accent-color: var(--primary);
+}
+
+/* AI 报告容器 */
 
 /* AI 光标动画 */
 .ai-cursor {
@@ -511,34 +583,23 @@ body {
   background: rgba(232, 128, 78, 0.1);
   border-color: rgba(232, 128, 78, 0.2);
 }
-.chat-msg-content h1,
-.chat-msg-content h2,
-.chat-msg-content h3 {
-  color: var(--primary);
+/* 聊天消息内的 markdown 字号略小 */
+.chat-msg-content .markdown-body {
+  font-size: 0.88rem;
+  line-height: 1.7;
+}
+.chat-msg-content .markdown-body h1,
+.chat-msg-content .markdown-body h2,
+.chat-msg-content .markdown-body h3 {
   margin-top: 12px;
   margin-bottom: 8px;
-  font-weight: 700;
-  line-height: 1.4;
 }
-.chat-msg-content h1 { font-size: 1.12rem; }
-.chat-msg-content h2 { font-size: 1.02rem; }
-.chat-msg-content h3 { font-size: 0.95rem; }
-.chat-msg-content p { margin-bottom: 8px; }
-.chat-msg-content ul,
-.chat-msg-content ol {
-  margin-bottom: 8px;
-  padding-left: 20px;
-}
-.chat-msg-content li { margin-bottom: 4px; }
-.chat-msg-content table {
-  width: 100%;
-  border-collapse: collapse;
+.chat-msg-content .markdown-body h1 { font-size: 1.08rem; }
+.chat-msg-content .markdown-body h2 { font-size: 1rem; }
+.chat-msg-content .markdown-body h3 { font-size: 0.93rem; }
+.chat-msg-content .markdown-body p { margin: 8px 0; }
+.chat-msg-content .markdown-body ul,
+.chat-msg-content .markdown-body ol {
   margin: 8px 0;
-}
-.chat-msg-content th,
-.chat-msg-content td {
-  padding: 6px 10px;
-  border: 1px solid var(--border);
-  text-align: left;
-  font-size: 0.82rem;
+  padding-left: 22px;
 }

@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-page-node-id="oBZDxfDZZ8h0EaiyVIC3GQ">
+<head data-page-node-id="jO6fDjmPcFHeUQ69pHpbxH">
+<meta charset="UTF-8" data-page-node-id="Xe9fwOZst4FmbzubTo3ZZd">
+<meta name="viewport" content="width=device-width, initial-scale=1.0" data-page-node-id="m5OXJ8KqYB0yC3rkJpzPNz">
+<title>方案 · 日线序列缓存</title>
+<style>
+  :root{
+    --primary:#e8804e; --primary-light:#f5a67a; --primary-dim:rgba(232,128,78,.14);
+    --bg-dark:#0f0f17; --bg-surface:#1a1a2e; --bg-card:#16162a;
+    --border:#2a2a42; --text:#e8e8f0; --text-dim:#9a9ab0;
+    --up:#ef4444; --down:#22c55e; --warn:#f9c74f; --ok:#43b581;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg-dark);color:var(--text);
+    font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif;
+    line-height:1.7;padding:32px 20px;font-size:14px}
+  .wrap{max-width:1080px;margin:0 auto}
+  header{border-bottom:1px solid var(--border);padding-bottom:20px;margin-bottom:32px}
+  h1{font-size:24px;font-weight:600;margin-bottom:8px}
+  h1 .tag{font-size:12px;background:var(--primary-dim);color:var(--primary);
+    padding:3px 10px;border-radius:11px;margin-left:10px;vertical-align:middle;font-weight:500}
+  .sub{color:var(--text-dim);font-size:13px}
+  h2{font-size:17px;font-weight:600;margin:36px 0 14px;padding-left:11px;
+    border-left:3px solid var(--primary)}
+  h3{font-size:14px;font-weight:600;margin:22px 0 10px;color:var(--primary-light)}
+  p{margin-bottom:12px;color:#d5d5e2}
+  code{background:#0a0a14;border:1px solid var(--border);border-radius:4px;
+    padding:1px 6px;font-family:"SF Mono",Menlo,monospace;font-size:12.5px;color:var(--primary-light)}
+  table{width:100%;border-collapse:collapse;margin:14px 0;font-size:13px}
+  th{background:var(--bg-surface);color:var(--text-dim);text-align:left;
+    padding:9px 12px;font-weight:500;border-bottom:1px solid var(--border);font-size:12px}
+  td{padding:9px 12px;border-bottom:1px solid #22223a;vertical-align:top}
+  tr:last-child td{border-bottom:none}
+  .yes{color:var(--ok)} .no{color:var(--down)} .dim{color:var(--text-dim)}
+  .card{background:var(--bg-card);border:1px solid var(--border);
+    border-radius:9px;padding:18px 20px;margin:14px 0}
+  .card.hl{border-color:var(--primary);background:linear-gradient(180deg,rgba(232,128,78,.07),transparent)}
+  .card.warn{border-color:var(--warn);background:linear-gradient(180deg,rgba(249,199,79,.06),transparent)}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  .grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+  .stat{background:var(--bg-surface);border:1px solid var(--border);
+    border-radius:8px;padding:14px;text-align:center}
+  .stat .v{font-size:21px;font-weight:600;color:var(--primary)}
+  .stat .l{font-size:11.5px;color:var(--text-dim);margin-top:3px}
+  pre{background:#0a0a14;border:1px solid var(--border);border-radius:7px;
+    padding:14px 16px;overflow-x:auto;margin:12px 0;font-size:12.5px;line-height:1.6}
+  pre code{background:none;border:none;padding:0;color:#c8c8dd}
+  ul,ol{margin:0 0 12px 22px;color:#d5d5e2}
+  li{margin-bottom:6px}
+  .k{color:var(--primary-light);font-weight:600}
+  .foot{margin-top:40px;padding-top:16px;border-top:1px solid var(--border);
+    color:var(--text-dim);font-size:12px}
+</style>
+</head>
+<body data-page-node-id="aarbOtMUCgnOMSYm2l7WV3">
+<div class="wrap" data-page-node-id="wOe4O1tqEkNEaDlLbhvJJU">
+
+<header data-page-node-id="Uhl4Cxdw5uptGL1DPR4l7S">
+  <h1 data-page-node-id="V1iV34Df4mEZcg6Rd8YoRE">日线序列缓存<span class="tag" data-page-node-id="UgNRzLwu5BXJK8AruCOpRs">方案 · 待确认</span></h1>
+  <div class="sub" data-page-node-id="rlx9IGoIJB6nm1W2xUbMHN">目标：把「每换一个日期就重抓全市场 5,624 只」改成「一次抓取，窗口内任意日期零请求」<br data-page-node-id="oqIDS1SWWvFsppa7indxV4">
+  2026-09-03 · 基于当日实测</div>
+</header>
+
+<h2 data-page-node-id="jYK77R8AuBxsZKiJX50wGA">1. 问题：我们每换一天就白抓一次全市场</h2>
+
+<p data-page-node-id="XGFIEL1M9WOXQWNxLowx49">慢路径现在的取数逻辑有两处浪费叠在一起：</p>
+
+<table data-page-node-id="XYxwqDRnfRLMmKQkDmSoHD">
+  <tr data-page-node-id="H6goWpAonHoKoGzeFBmnpX"><th style="width:26%" data-page-node-id="A8PGjTHyBq9CEgqzK5qbb3">环节</th><th data-page-node-id="GIKhM5GGbDbzij4uUuz76b">现状</th><th data-page-node-id="R0KVR8qC4Qf0QYAi9zXCEm">后果</th></tr>
+  <tr data-page-node-id="1I0HuHBhUfgiFo8xh5RCaL">
+    <td data-page-node-id="1GpWiBskEwCty98OWCUTv1"><code data-page-node-id="lDb3bkWRc7l2vpfWu0ilBi">bars_needed_for(date)</code></td>
+    <td data-page-node-id="8iN7jggheHWCW9pEC5X6rT">只取「够目标日用」的根数：<code data-page-node-id="LCdcfwYFEy8PgpticHagBr">ceil(自然日 × 5/7) + 15</code>。<br data-page-node-id="1XK6HeDghzdqMOW7NOcazf">
+        2026-08-27 只要 <span class="k" data-page-node-id="GKhcLJxhcUah9puAhLqPGE">20 根</span>，2026-06-30 要 <span class="k" data-page-node-id="IxFwXxiSlgOtygaD9XOLj5">62 根</span></td>
+    <td data-page-node-id="y9sHHC1ws5l902zuKGbrs1">窗口刚好卡在目标日，多一天都不覆盖</td>
+  </tr>
+  <tr data-page-node-id="lOJ2XREBvT7lSieGVM5eIX">
+    <td data-page-node-id="RplUo2W5CL6Pvu27VKoXWS"><code data-page-node-id="ymgiGPgWBTvQ3VlNq1H3vb">load_or_fetch_bars</code></td>
+    <td data-page-node-id="qlAXA844hCCApCImP2Wvo0">抓回来的整条序列里，<b data-page-node-id="ilVxeKz8qL0gkHhHLI7px6">只把目标日那一行</b>落 <code data-page-node-id="zXVZBMgfHsh3nKiaKNRzgW">daily_bar_cache</code></td>
+    <td data-page-node-id="i7NHAm7kp6Zx9bdAa2Dm5c">其余 19 / 61 根拿到手就丢掉</td>
+  </tr>
+</table>
+
+<p data-page-node-id="MZg3HYLETlf0EgI3JB5YVI">于是：看 8-27 花 13 秒抓 5,624 只；再点 6-30，<b data-page-node-id="sCN18GyhdDrU2QloNXOAcl">同样的 5,624 只再抓一遍</b>。而这两次抓的序列其实是高度重合的。</p>
+
+<h2 data-page-node-id="fNfSKrOHjdJR0lsGNZMD6A">2. 关键实测：多取不要钱</h2>
+
+<p data-page-node-id="5M7UW2mKOvAiQ9xSnxHqBu">这个方案成立的前提是「把窗口放宽不增加成本」。这需要验证，因为直觉上取 120 根应该比取 20 根慢。实测结果是<b data-page-node-id="igQdPeI8xBrZZqA9eMGZZf">不成立</b>：</p>
+
+<h3 data-page-node-id="xWstW1zB08zP60YzRbNLQS">新浪单次请求：延迟对返回条数几乎不敏感</h3>
+<table data-page-node-id="Lv2SV7DSXD7QOV76ecT6VQ">
+  <tr data-page-node-id="e5vXxTRxB02Ex82TCVBWUf"><th data-page-node-id="NS9RTPqEpgMN5wwxmk42yA">datalen</th><th data-page-node-id="aloSk2ojK1MDPzjMEZDB7X">10</th><th data-page-node-id="Pb2FyEtvKJOAYdz7ra5oqo">20</th><th data-page-node-id="SS5bS63WIm4Zfy1RkcaOTd">62</th><th data-page-node-id="aVj4mfwHvu6RR9BUcavB0w">120</th><th data-page-node-id="LtjzFCqgCjpA7N9hICCVnj">250</th></tr>
+  <tr data-page-node-id="sGggh3ADAOdTUW52u32jgl"><td data-page-node-id="Z1PrDDPn6fp76jfDyWWrBH">中位延迟</td><td data-page-node-id="4BeIHCDEykeVGnxNjl3goB">247ms</td><td data-page-node-id="uxXyxZbQFqTytTG1C1g86A">241ms</td><td data-page-node-id="8gAYNqmJ2Ifhubt8pV2W2i">229ms</td><td class="yes" data-page-node-id="YfABfIilmWuKPZTMZiHHVx">242ms</td><td data-page-node-id="afXa0Gl7mo0EhXqPcxEpoq">278ms</td></tr>
+  <tr data-page-node-id="8zHpflIX4FIsQcs2C2zEvY"><td data-page-node-id="McP6jouieQiHhDVgfzGwp2">响应体</td><td data-page-node-id="ABk4DFYEH0DKD5D3myTfOi">1.0KB</td><td data-page-node-id="YZ2wcCQpzX2B4bMNEAw427">2.0KB</td><td data-page-node-id="exQSEhjbIwEOwETxaLA8UP">6.2KB</td><td class="yes" data-page-node-id="LDLZlDXtORmOnzW0nRZ9PL">11.9KB</td><td data-page-node-id="cvgzgQdwvHlGoFg9zvXgAK">24.9KB</td></tr>
+</table>
+<p class="dim" data-page-node-id="Dlc6vBbFyRxGGUB7EzbOfj">20 根 → 120 根，延迟 241ms → 242ms，等于免费；到 250 根才涨 15%。</p>
+
+<h3 data-page-node-id="Db9ocxyj9mQ4MOlJ7TW3m6">端到端冷启动：20 根与 62 根耗时无差异</h3>
+<table data-page-node-id="MPCmpEynwr3s6HClzHOF11">
+  <tr data-page-node-id="DHLElHAEtasrX4mOhTiPkm"><th data-page-node-id="JAW9OunjJZKPCB0fja6MhO">轮次</th><th data-page-node-id="rQI1Dq6fptquf3c6YyY1zh">2026-08-27（20 根）</th><th data-page-node-id="fSaxiLajcsmpwGMNsPxZ3o">2026-06-30（62 根）</th></tr>
+  <tr data-page-node-id="aYN6VVeKBrdQ6lLG0hFkpr"><td data-page-node-id="Ch9cBrVbZShCxOQAcnlVo6">round 0</td><td data-page-node-id="dKFtoejKdzZS6Rr5Px9cpm">11919ms</td><td data-page-node-id="5Y0UIcG3I682lovgtW2VQ9">11869ms</td></tr>
+  <tr data-page-node-id="qdisC5F9dpWAO9qXSoTBLZ"><td data-page-node-id="LQAJhCQPAFpcyV5Fh3HqfU">round 1</td><td data-page-node-id="bh5JXSV46E3pkiBx47J72p">15497ms</td><td data-page-node-id="RueduwExueRegIyNCnKHqD">12389ms</td></tr>
+  <tr data-page-node-id="1G4xqrwaDbRia2QcTb6leD"><td data-page-node-id="wNDisU6JdL6oukFhK06Ybr">round 2</td><td data-page-node-id="1EFyTSxuUX1NoRydfJToLZ">14362ms</td><td data-page-node-id="6lgPRxXmMYiZpDqpcDCArA">18992ms</td></tr>
+  <tr data-page-node-id="BlTaasvh4oMFHleNG94ZCs"><td data-page-node-id="YRD5kCUTGoqLkTyISIGZ98"><b data-page-node-id="4hTX9SO1kaOGAYJpfKPPaX">中位</b></td><td data-page-node-id="xfgnKNZtUr05QNUb3GJlhJ"><b data-page-node-id="3wRBNOADYihiDmdcHr5Duj">14362ms</b></td><td data-page-node-id="FD8AhMWzmKTfmG14nGLkkp"><b data-page-node-id="M1UjqpLcOd1DwA4POnTq7r">12389ms</b></td></tr>
+</table>
+
+<div class="card warn" data-page-node-id="LoGu2deOLesF8vAv5EtzmG">
+<b data-page-node-id="lQoidGW5GRpmYZ0Mcm6lBP">这里差点又踩一次「单样本当常态」。</b>早先单独跑 6-30 拿到 21s，看上去像是「取 62 根比 20 根慢 65%」。
+但改成交替顺序跑 3 轮后，两者中位数其实<b data-page-node-id="zBoqvATrpCAfRYfTvkrNVV">反过来</b>（62 根还略快）。那个 21s 是当时上游正在限流，
+不是 payload 的成本。<span class="dim" data-page-node-id="FTthD4UtPFCi0aHOad9Jcl">（这是本会话第四次遇到同类问题：110s+340失败、并发 8 更快、腾讯 200 的幸运样本、这次的 21s。）</span>
+</div>
+
+<h2 data-page-node-id="AU0XYMgYoRbHoTc1bPwwmx">3. 方案：改两处</h2>
+
+<div class="card hl" data-page-node-id="Oq0bWPBdAt6awEA1C9SsG6">
+<p style="margin-bottom:8px" data-page-node-id="zC0yIOTOinXPzXEBp4XE4Z"><b data-page-node-id="nSYtZQ9lD0kpNUH6mGtBuI">改动 1</b> · <code data-page-node-id="I86Lv2R27lk6D12ghoAtJQ">load_or_fetch_bars</code> 把抓回来的<b data-page-node-id="9YEY7VF9ykyQeJ9jTnPEwc">整条序列</b>落库，而不是只存目标日那一行。</p>
+<p style="margin-bottom:0" data-page-node-id="UVwtJZsVt8nQdvLRiz1Iaa"><b data-page-node-id="TvczbXCVDQOiywtz5eMEiO">改动 2</b> · 抓取窗口从「刚好够目标日」放宽到固定 <code data-page-node-id="dNqTxoVc7dtDbIGXMnOygd">SERIES_WINDOW_BARS = 120</code>（约半年）。</p>
+</div>
+
+<p data-page-node-id="WNBW7BxEuvDQa5QJ1mO6Tk"><b data-page-node-id="hIKuESZ5EM38Xjqwf98FMq">不需要数据库迁移</b>：<code data-page-node-id="PpvrG0MY9XNjg6vMRBFQgA">daily_bar_cache</code> 的主键本来就是 <code data-page-node-id="RtB3UzD4MwdjgV31aXXxw3">(stock_code, date)</code>，
+天然支持一只股票存多个日期。现有 <code data-page-node-id="PNNrNcdMTpyqBKCEuJFB1c">prune_daily_bars(CACHE_KEEP_DATES = 250)</code> 已经能按日期数封顶。</p>
+
+<pre data-page-node-id="KwuGaOZKE2N2eiUbTBBAgO"><code data-page-node-id="RTdUhQrEPNsOfTeZ1JLrcG">// 现状：只留目标日
+let rows = fetched.iter().map(|b| (b.code, date, b.close, b.pct_change, b.amount));
+
+// 改后：整条序列都留（伪代码）
+for (klines, _status) in fetched_series {
+    for k in klines {
+        rows.push((code, k.date, k.close, k.pct_change, amount));
+    }
+}</code></pre>
+
+<h3 data-page-node-id="KXVRaUPsKDBEMClzpg8UZh">收益测算</h3>
+<div class="grid3" data-page-node-id="kEBMl243SFn9br9hiDTMJi">
+  <div class="stat" data-page-node-id="t3vlxuPY2EFCiyIRik3VMj"><div class="v" data-page-node-id="siqrwzrLAlEFGDboyUnVTu">≈13s</div><div class="l" data-page-node-id="YuJrSSNx5qSRiqN50YGZXA">首次冷启动（并发 48）</div></div>
+  <div class="stat" data-page-node-id="RgZoy1Wj3ivBIowRBwFoPz"><div class="v" data-page-node-id="jhH1QHTAZfiou6gVwG6Vtv">≈0</div><div class="l" data-page-node-id="xwymg4J6xMTtY3QZPzyBFK">窗口内其它日期的请求数</div></div>
+  <div class="stat" data-page-node-id="CohDfdsLBN6MYJTucqo6NY"><div class="v" data-page-node-id="Ex6c3FxFQdKGh6T3sCEB7C">≈67 万</div><div class="l" data-page-node-id="yDIHV5hNFcsUvqadncBJJL">一次性落库行数（5,624 × 120）</div></div>
+</div>
+<p class="dim" style="margin-top:10px" data-page-node-id="P3PJMwn46uk9SZ9RLcTyVE">落库量对照：<code data-page-node-id="9m9fJcz1dlsPDZeaUAqyfP">CACHE_KEEP_DATES = 250</code> 个交易日 × 5,624 只 ≈ 140 万行是这张表的设计容量，
+67 万行完全在预算内，且被 prune 兜底。</p>
+
+<h2 data-page-node-id="QK980hGGiTIA1clNgpGUTl">4. 三个必须一起定的设计点</h2>
+
+<h3 data-page-node-id="IScvXXg7wHGZgn3YGfo3qS">4.1 前复权会让缓存变陈旧 <span class="dim" data-page-node-id="wSyurID2KzUg4hlnwEjLqZ">（这是真风险，不是理论问题）</span></h3>
+<p data-page-node-id="AHgTGnK9x6uqBPkEOtKt5W">腾讯是<b data-page-node-id="HqPTMfS0NplN4KFCKtdSUB">前复权</b>：个股除权后，它历史上所有价格都会被重算。若我们缓存了前复权序列，
+除权日一过，缓存里的历史价就全是错的，而且<b data-page-node-id="lCMwEBxOuzKJGQfpmiZHaA">看不出来</b>。新浪是<b data-page-node-id="L8KJ1Qam1u4MfbbJ3PakYt">不复权</b>，没有这个问题。</p>
+<p data-page-node-id="qgvahctHhdXp6HYcDS8ypS">麻烦在于：<code data-page-node-id="e3FB6gZsPYGiRexJ20z56P">fetch_kline_with_status</code> 返回 <code data-page-node-id="7AqCDJpWjWovgLw5MGBlPS">(Vec&lt;Kline&gt;, KlineStatus)</code>，
+<b data-page-node-id="pFQUypmg5p8jiaHoGw46b3">没告诉我们这批数据来自哪个源</b>——主源覆盖不到目标日时会静默回落到新浪。所以「只缓存不复权」需要先能识别来源。</p>
+
+<table data-page-node-id="6UZWD8ozYJ7sDCKStFLSKc">
+  <tr data-page-node-id="98lgmBYV4oQelE8BXlmlKw"><th style="width:14%" data-page-node-id="Bokcm5lLD5qa1c8FKpVqmx">选项</th><th data-page-node-id="AKw4Ne7BjkvhizJUnqxGbf">做法</th><th data-page-node-id="Y1PEjLJKfwTGp6GdIYzxZV">优劣</th></tr>
+  <tr data-page-node-id="Kk3iacmC4FnjEyk4NhfFMf">
+    <td data-page-node-id="3NTpZLWz22eaKYzEsZerIp"><b data-page-node-id="VO2HHyUQkRaAMeBaTaTWI2">A（推荐）</b></td>
+    <td data-page-node-id="MTUE9OtK5TY8n0qvf9H6M4">缓存整条序列，但给每只股票记一个 <code data-page-node-id="KYpxdH0HNEL8HA78iFF3f3">fetched_at</code>，<b data-page-node-id="ZjHJC4YpVSXK4HYzTbnSXI">每天最多刷新一次</b>。
+        新表 <code data-page-node-id="ADfvU8FozAUO797naPbjpR">kline_series_meta(code, fetched_at)</code>，约 3 行迁移。</td>
+    <td class="yes" data-page-node-id="YewMAsv6AvuuqBOYqWarVO">前复权陈旧性被压到 1 天内；归档任务本来就每天跑，等于顺路复用。不限定来源，两个源都享受加速。</td>
+  </tr>
+  <tr data-page-node-id="BVLZAwHKtcwTdTdsKA7QNw">
+    <td data-page-node-id="mke0OpqEoEvRlrpXJNksh7">B</td>
+    <td data-page-node-id="ACr1lWJ9oGqTqQePipduPV">只缓存不复权（新浪）来源的序列；腾讯来源仍按现状只存目标日。
+        需要给返回值加来源标记。</td>
+    <td class="yes" data-page-node-id="tH4XPBfmK5ZCJyv3jazpuU">无陈旧风险、无新表。<br data-page-node-id="wXN5wKrBc6slWnk0HoQVwp"><span class="no" data-page-node-id="ZCFpYFuiqtit6wfILLcCfi">腾讯恢复后享受不到加速；且要改 trait 返回值。</span></td>
+  </tr>
+  <tr data-page-node-id="t97YXOpLV1zpERa0YyB0LT">
+    <td data-page-node-id="uTEgxm8PwXGKlpOyf200k0">C</td>
+    <td data-page-node-id="UmweW7fAvFbS5hAGSQrnOa">不区分，全量缓存。</td>
+    <td class="no" data-page-node-id="ph2xbATINZOxYRlrNX1PRA">最简单，但除权季会静默产出错误的历史价格。<b data-page-node-id="PAGylCAG9jhutAIhZ5HdDi">不建议。</b></td>
+  </tr>
+</table>
+
+<h3 data-page-node-id="Tk1vh9s2t5HtRZDvBTXMG0">4.2 落库量一次性放大 120 倍</h3>
+<p data-page-node-id="Ltm9PExLxpZj5atuW55pj1">单只股票从落 1 行变成落 120 行。需要确认 <code data-page-node-id="MuFMVhVRA1v8MEuJiR9YMX">save_daily_bars</code> 是一次事务提交还是分批——
+67 万行一次性写要注意 SQLite 的 WAL 与事务开销。<b data-page-node-id="SVZgs1RIyfTSdG9PcSFuh1">实施前先看这个函数的实现</b>，必要时分批提交。</p>
+
+<h3 data-page-node-id="9f1DeX0dsIHJeuWpvFmm3v">4.3 老数据的兼容</h3>
+<p data-page-node-id="n4UzV3cbP9cnPYzzdSi2Hl">表里已有约 3.9 万行老缓存（7 个日期 × ~5,600）。它们没有 <code data-page-node-id="Nddh7LPZT4b4gQrALlrOGR">fetched_at</code> 概念。
+方案 A 下这些行会被当作「未刷新」而重抓一次——一次性成本，可接受，但要在验收里确认。</p>
+
+<h2 data-page-node-id="HA26NJCKmjpxHTKmzKmiIZ">5. 实施步骤</h2>
+<ol data-page-node-id="JjeMSesJF88JOgVKMyHcB2">
+  <li data-page-node-id="p7AOFIYpW3HNFrFAtJCmIF">读 <code data-page-node-id="yLu5HzohoUsKqnHCS4culC">save_daily_bars</code> 实现，确认 67 万行落库的写入方式（必要时改分批）</li>
+  <li data-page-node-id="BppPpTG4YbW1jS0ixTE7tb">加迁移：按 4.1 选定方案建表 / 加列</li>
+  <li data-page-node-id="Olzx724qz82cLzpnXKwO7H">加常量 <code data-page-node-id="4B4lz5YAwSlaymfThG4R7l">SERIES_WINDOW_BARS = 120</code>，注释写明「为什么是 120」（延迟实测表 + 半年的覆盖权衡）</li>
+  <li data-page-node-id="c8UPVSUTaR84aNXTssmPZO">改 <code data-page-node-id="HI1WHhxsNsExbMM4WB1KI6">load_or_fetch_bars</code>：整条序列落库 + 用固定窗口取数</li>
+  <li data-page-node-id="tSDtyAjs2LBPoSsZLKBDFT">单测：一次抓取应落库 N 行；命中窗口的第二个日期不发起网络请求</li>
+  <li data-page-node-id="ZsajFwWXneOm9diaqUQzId">验收（见下）</li>
+</ol>
+
+<h2 data-page-node-id="dPKWuVLF0Gxkp4DrEwaD2Y">6. 验收标准</h2>
+<table data-page-node-id="MEbY0sOoAK2NyqHutYvMGX">
+  <tr data-page-node-id="2kSb0gY1hy3BuQpuXqqCJn"><th style="width:30%" data-page-node-id="BkpK9qEK64Pmg41paTkwDF">项</th><th data-page-node-id="FfvQdD8yBzLHZJgKWFWb4d">通过条件</th></tr>
+  <tr data-page-node-id="0Pi8zDQGyomKf4D7D4I1Ee"><td data-page-node-id="zPTZSag8rPDZMLHmnHHAER">覆盖数不退化</td><td data-page-node-id="eLjoTfK8oLWID9SH57U8By">冷启动 <code data-page-node-id="CAqwUbmArwqDbZuE6I9p7O">covered</code> 仍为 5,624（2026-08-27），与改动前一致</td></tr>
+  <tr data-page-node-id="JpHnEtgv80UxALgJqJKTA2"><td data-page-node-id="AFM7CA4KH2QOLNlskF61wL">第二个日期零请求</td><td data-page-node-id="h3RWDHNDOICo5sGFWvWssN">窗口内换一个日期，<code data-page-node-id="Zkqoa8QEsoXZzoU7Cj2Euh">elapsed_ms</code> 从 ~13s 降到 &lt; 1s</td></tr>
+  <tr data-page-node-id="3JkuTzhpOMsgxT5vZQCJX2"><td data-page-node-id="EOqvGu8bhNqK3LbKPEFfQo">数据等价</td><td data-page-node-id="gPbyxkXTWYTGtxNcj2BW42">同一日期在改动前后两次生成的报告，<code data-page-node-id="yOE3eXvrPdrL7P1FZgNXWk">breadth</code> 指纹一致、<code data-page-node-id="i2Vr6TuoA5IdQmgd1rK7jQ">boards</code> 差异 ≤ 1e-12</td></tr>
+  <tr data-page-node-id="lK0cdU52K0JZOsEqyZHyp5"><td data-page-node-id="dX86xckcohKbqPfjHPNP01">陈旧性可控</td><td data-page-node-id="xGP5ENw4CCS1oX8r3ZiQKS">人为改小「刷新间隔」后，超期的序列会被重新抓取</td></tr>
+  <tr data-page-node-id="HsHR2KnFxgGcMRuLcGccWu"><td data-page-node-id="w4x4rOPFs6PWPdk0LSBrIZ">全量回归</td><td data-page-node-id="FH6N8RF1cL3QsivyppG99w"><code data-page-node-id="IRulvhDN11At5N43FMTwKv">cargo build</code> 0 warning；单测全过；活网测试 8/8；<code data-page-node-id="bKXnNspSFjIfDHynwieixS">tsc --noEmit</code> 干净；6 端点全 200</td></tr>
+</table>
+
+<h2 data-page-node-id="r0rjoPVVBbFlIUdp6mcxIh">7. 回退</h2>
+<p data-page-node-id="EzA5JHo8IhChnYHA6G3INz">改动集中在 <code data-page-node-id="btBdqZ1K6QbN3Vqxxl7mrR">load_or_fetch_bars</code> 一个函数和一处常量。回退方式：把 <code data-page-node-id="zobaHy2jBqDmA4f17bq09Z">SERIES_WINDOW_BARS</code>
+改回 <code data-page-node-id="7aCaa4AMTvXeJkDXASUeWr">bars_needed_for(date)</code>、只落目标日那一行即可，不需要回滚迁移（多出的列/表留着无害）。</p>
+
+<div class="foot" data-page-node-id="3VXp9gXmN4veQTZpcAtHSm">
+实测环境：2026-09-03 · 慢路径并发 48 · 主源腾讯 WAF 拦截中（40/40 返回 501），全部日线走新浪兜底。<br data-page-node-id="ylgQLCJ2hlgaQ3zSkKq7CJ">
+关联：主源熔断（SourceBreaker）已于同日落地，慢路径冷启动 23.2s → 12.7s。
+</div>
+
+<h2 style="margin-top:36px">8. 实施结果（2026-09-04 已落地）</h2>
+
+<p>按 §4.1 的 <strong>方案 A</strong> 实施。核心数字全部为实测。</p>
+
+<table>
+  <tr><th style="width:26%">场景</th><th>日期</th><th>命中缓存</th><th>序列命中</th><th>实际请求数</th><th>耗时</th></tr>
+  <tr><td>冷启动（无序列记录）</td><td>2026-08-24</td><td>0</td><td>0</td><td><strong>5,642</strong></td><td>17,628 ms</td></tr>
+  <tr><td>命中序列缓存</td><td>2026-08-25</td><td>5,622</td><td>11</td><td><strong>9</strong></td><td>1,588 ms</td></tr>
+  <tr><td>命中序列缓存</td><td>2026-08-21</td><td>5,620</td><td>13</td><td><strong>9</strong></td><td>1,397 ms</td></tr>
+  <tr><td>命中序列缓存</td><td>2026-07-15</td><td>5,601</td><td>32</td><td><strong>9</strong></td><td>1,494 ms</td></tr>
+  <tr><td>超出 120 根窗口</td><td>2026-01-15</td><td>—</td><td>—</td><td>回退到大窗口</td><td>24,451 ms（5,515 只）</td></tr>
+</table>
+
+<p><strong>5,624 → 9 次请求，17.6s → 1.4s。</strong>剩下那 9 次不是缺陷：它们是冷启动时真正抓取失败的股票（拿不到 K 线，因此没有序列记录），每次查询都会重试一次——这正是「自愈」的那条路径。</p>
+
+<h3>数据等价性：逐位一致</h3>
+<p>用旧代码（小窗口）产出的缓存当基准，清空后让新代码（120 根窗口）重抓，逐个数值对比：</p>
+<table>
+  <tr><th style="width:30%">日期</th><th>可比行数</th><th>close 差异</th><th>pct_change 差异</th><th>行集合差异</th></tr>
+  <tr><td>2026-08-27</td><td>5,624</td><td>0 行</td><td>0 行</td><td>0</td></tr>
+  <tr><td>2026-06-30</td><td>5,581</td><td>0 行</td><td>0 行</td><td>0</td></tr>
+</table>
+<p>窗口从 22 根放大到 120 根，<strong>没有改变任何一根 K 线的数值</strong>。原因：前复权的调整因子取决于「该日到最新日之间的分红」，与一次请求多少根无关；新浪本就是不复权。唯一例外是每串序列的<strong>首根</strong>——两家源都不返回它的涨跌幅（要靠前一根现算），落库会写成 0，将来查到那天会得到一个看起来正常、其实是假的数字，因此首根不落库。</p>
+
+<h3>落库成本</h3>
+<p>665,351 行写入 <strong>1,624 ms</strong>。这是把 <code>save_daily_bars</code> 从「逐行 INSERT」改成「每 100 行一条多行 INSERT」的结果；逐行版本在这个量级下要几十秒。库体积 5.6 MB → 约 60 MB，行数 38,965 → 670,636。</p>
+
+<h3>两处实施时才发现的问题</h3>
+<p><strong>① 清理与序列记录会不一致。</strong>少数长期停牌股（实测 6 只）的「最近 120 根」会回溯到一年前，把缓存里的日期数从 ~120 推到 249，逼近 <code>CACHE_KEEP_DATES = 250</code>。一旦超过，清理会删掉最旧的日期，而序列记录仍声称覆盖它们——上层据此把「数据已被清理」误判成「当日停牌」，一个不报错、只会悄悄算错的错误。已在 <code>prune_daily_bars</code> 里同步失效这些记录（副本演练：清 49 行、失效 1 条记录，不变量校验 0 违反）。</p>
+<p><strong>②「每天最多刷新一次」其实没被触发。</strong>方案 A 设想靠每天重抓来压制前复权的陈旧性，但实现里有个提前返回：某日期的缓存若已齐全，<code>missing</code> 为空就直接返回，<strong>一只股票都不会重抓</strong>。于是序列只在「该股恰好缺这个日期」时才刷新，历史行的陈旧性并未被限制在 1 天内。当前全部数据走新浪（不复权），这个洞<strong>暂时不可见</strong>；但腾讯一旦恢复，除权季就会静默产出错误的历史价。</p>
+<p>建议的补法（未实施，待确认）：在每天本就要跑的归档任务里，按 <code>fetched_at</code> 从旧到新滚动刷新一小片，例如 <code>5633 / 7 ≈ 805</code> 只/天。代价约 805 次请求（≈4s）+ 9.7 万行更新（≈0.3s），换来「7 天全量滚动一轮」的确定性上界。</p>
+
+<h3>验证</h3>
+<p><code>cargo build</code> 0 warning；单测 <strong>122 通过 / 0 失败</strong>（新增 8 条：5 条覆盖「能否命中序列」的判定，3 条覆盖存储层）；6 端点全 200；快路径无回归（5,189 只 / 东财板块官方涨跌幅）。</p>
+
+</div>
+</body>
+</html>

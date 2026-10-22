@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-page-node-id="TcErZ1DPfDUVCgasCrG4zQ">
+<head data-page-node-id="Y3li9464VdyQiwIZKIlJ8u">
+<meta charset="UTF-8" data-page-node-id="Tao0InzgQwvlgCxr97GIjQ">
+<meta name="viewport" content="width=device-width, initial-scale=1.0" data-page-node-id="EUMAX8CTPbWnQ5DD3RUE5T">
+<title>情绪日报归档中心 · 方案预览</title>
+<style>
+:root{
+  --primary:#e8804e; --primary-light:#f4a574;
+  --bg-dark:#0f0f17; --bg-surface:#1a1a2e; --bg-surface-light:#22223a;
+  --text:#e0e0e8; --text-dim:#9090a8; --border:#2a2a42;
+  --up:#ef4444; --down:#22c55e;
+  --ok:#a6e3a1; --warn:#f9e2af; --bad:#f38ba8; --info:#89b4fa;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{
+  background:var(--bg-dark); color:var(--text);
+  font-family:-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei',sans-serif;
+  font-size:14px; line-height:1.6; padding:28px 32px 60px;
+}
+.wrap{max-width:1180px;margin:0 auto}
+h1{font-size:21px;font-weight:600;letter-spacing:.3px}
+h1 .sub{color:var(--text-dim);font-size:13px;font-weight:400;margin-left:10px}
+h2{font-size:15px;font-weight:600;margin:34px 0 14px;padding-left:11px;border-left:3px solid var(--primary)}
+h3{font-size:13px;font-weight:600;margin:18px 0 10px;color:var(--primary-light)}
+p.lead{color:var(--text-dim);font-size:13px;margin-bottom:6px}
+table{width:100%;border-collapse:collapse;font-size:12.5px;margin:10px 0}
+th{background:var(--bg-surface);color:var(--text-dim);font-weight:500;text-align:left;
+   padding:8px 11px;border-bottom:1px solid var(--border);white-space:nowrap}
+td{padding:8px 11px;border-bottom:1px solid var(--border);vertical-align:top}
+tr:hover td{background:rgba(232,128,78,.05)}
+.mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px}
+.ok{color:var(--ok)} .gap{color:var(--bad)} .warn{color:var(--warn)}
+.info{color:var(--info)} .dim{color:var(--text-dim)}
+.num{text-align:right;font-variant-numeric:tabular-nums}
+.hl{color:var(--primary);font-weight:600}
+
+/* 性能对比条 */
+.bars{display:flex;flex-direction:column;gap:9px;margin:14px 0}
+.bar-row{display:flex;align-items:center;gap:12px;font-size:12.5px}
+.bar-row .lbl{width:120px;color:var(--text-dim);text-align:right;flex-shrink:0}
+.bar-track{flex:1;height:22px;background:var(--bg-surface);border:1px solid var(--border);border-radius:3px;overflow:hidden}
+.bar-fill{height:100%;display:flex;align-items:center;padding-left:9px;font-size:11.5px;font-weight:600;color:#0f0f17}
+
+/* UI mockup */
+.mock{border:1px solid var(--border);border-radius:7px;overflow:hidden;margin:14px 0;background:var(--bg-dark)}
+.mock-bar{background:var(--bg-surface);padding:11px 14px;display:flex;align-items:center;gap:9px;
+  flex-wrap:wrap;border-bottom:1px solid var(--border)}
+.mock-title{font-size:14px;font-weight:600;margin-right:4px}
+.btn{background:var(--bg-surface-light);border:1px solid var(--border);color:var(--text);
+  padding:5px 11px;border-radius:5px;font-size:12px;cursor:default;display:inline-flex;
+  align-items:center;gap:5px;white-space:nowrap}
+.btn.primary{background:var(--primary);border-color:var(--primary);color:#0f0f17;font-weight:600}
+.btn .dot{width:6px;height:6px;border-radius:50%;background:var(--ok)}
+.mock-body{padding:16px}
+.drawer{background:var(--bg-surface);border:1px solid var(--border);border-radius:6px;overflow:hidden}
+.drawer-hd{padding:10px 14px;border-bottom:1px solid var(--border);display:flex;
+  justify-content:space-between;align-items:center;font-size:12.5px}
+.arc-row{display:flex;align-items:center;gap:12px;padding:10px 14px;
+  border-bottom:1px solid var(--border);font-size:12.5px}
+.arc-row:last-child{border-bottom:none}
+.arc-row:hover{background:var(--bg-surface-light)}
+.arc-date{width:96px;font-weight:600;font-variant-numeric:tabular-nums;flex-shrink:0}
+.arc-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+.arc-meta{flex:1;color:var(--text-dim);font-size:11.5px}
+.arc-act{display:flex;gap:7px;flex-shrink:0}
+.mini{font-size:11px;padding:2px 8px;border:1px solid var(--border);border-radius:4px;color:var(--text-dim)}
+.mini.hot{border-color:var(--primary);color:var(--primary)}
+
+/* 日历 mock */
+.cal{display:grid;grid-template-columns:repeat(7,1fr);gap:2px;font-size:11px;
+  max-width:266px;margin-top:8px}
+.cal .hd{color:var(--text-dim);text-align:center;padding:3px 0;font-size:10.5px}
+.cal .d{text-align:center;padding:6px 0;border-radius:4px;color:var(--text-dim);
+  font-variant-numeric:tabular-nums;position:relative}
+.cal .d.we{color:#5a5a72}
+.cal .d.arch{background:rgba(232,128,78,.16);color:var(--primary-light);font-weight:600}
+.cal .d.arch::after{content:'';position:absolute;bottom:2px;left:50%;transform:translateX(-50%);
+  width:3px;height:3px;border-radius:50%;background:var(--primary)}
+.cal .d.sel{background:var(--primary);color:#0f0f17;font-weight:700}
+.cal .d.sel::after{background:#0f0f17}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+.note{background:var(--bg-surface);border-left:3px solid var(--warn);padding:11px 14px;
+  border-radius:0 5px 5px 0;font-size:12.5px;margin:12px 0;color:var(--text)}
+.note.good{border-left-color:var(--ok)}
+.note.bad{border-left-color:var(--bad)}
+.note b{color:var(--text)}
+footer{margin-top:44px;padding-top:16px;border-top:1px solid var(--border);
+  color:var(--text-dim);font-size:11.5px}
+ul{margin:8px 0 8px 20px;font-size:12.5px;color:var(--text-dim)}
+li{margin:4px 0}
+li b{color:var(--text)}
+.phase{display:flex;gap:12px;margin:12px 0;align-items:flex-start}
+.phase-n{width:26px;height:26px;border-radius:50%;background:var(--bg-surface);
+  border:1px solid var(--primary);color:var(--primary);display:flex;align-items:center;
+  justify-content:center;font-size:12px;font-weight:700;flex-shrink:0}
+.phase-b{flex:1}
+.phase-b .t{font-weight:600;font-size:13px;margin-bottom:3px}
+.phase-b .d{font-size:12px;color:var(--text-dim)}
+.tag{display:inline-block;font-size:10.5px;padding:1px 7px;border-radius:3px;
+  border:1px solid var(--border);color:var(--text-dim);margin-left:7px}
+.tag.req{border-color:var(--bad);color:var(--bad)}
+.tag.opt{border-color:var(--text-dim)}
+</style>
+</head>
+<body data-page-node-id="SRFr3UOagzItSPElu3F6Qe">
+<div class="wrap" data-page-node-id="SkHqwf240OxzHBiEcrxkG1">
+
+<h1 data-page-node-id="b9UBhntEIAggPCeJr7WOsE">情绪日报 · 归档中心<span class="sub" data-page-node-id="Mkdd4kaTSfn450FTtlm9oq">方案预览 · 2026-09-02 · stock-buddy</span></h1>
+<p class="lead" data-page-node-id="tKP13o8HfVXN0vCNMObwx5">目标：把「按日期归档 / 回溯任意交易日 / 导出单文件 HTML」从「能力已存在但用户找不到」推进到「归档可发现、可管理、可留存」。</p>
+
+<div class="note bad" data-page-node-id="t2emt7ZwEHaBvkMwTTIypq">
+<b data-page-node-id="JWMiGIow34ppPQBCDLXl61">先说结论：三项能力其实都已经实现了</b>——导出路由、归档表、按日期回溯全都在线且可用。
+真正的缺口是<b data-page-node-id="XEFPhvAfeye21rL9nfPzqi">可发现性</b>：系统里已经归档了 5 天，但用户无从得知，只能拿 DatePicker 盲猜日期，
+猜错就触发 20 秒冷启动。下面先盘现状，再给补法。
+</div>
+
+<h2 data-page-node-id="m0UbeqST3HdKC3VyEkHcG3">一、现状盘点（全部实测）</h2>
+<table data-page-node-id="xGbIaDnoJJkkdzMPCbW23n">
+<thead data-page-node-id="XQiPsC7izfXVu5942mdfUo"><tr data-page-node-id="RGYSvqluPRQBrlTAXNFDCc"><th style="width:210px" data-page-node-id="ubkTndiuAi3MuAAv7U1SjG">能力</th><th style="width:78px" data-page-node-id="TdnfJao6Cnw9Pno48ARNpc">状态</th><th data-page-node-id="53iZjD3l9sVDbBMKoVn8DC">实测证据</th></tr></thead>
+<tbody data-page-node-id="tyYLg24hvACIAiZFsIzC4i">
+<tr data-page-node-id="IuANAZrMhx6JecADtSPBYG"><td data-page-node-id="JnXaF87AaZRMYGfts4DHeG">单文件 HTML 导出</td><td class="ok" data-page-node-id="49P3fB4Bj5N7bH2G2XIjor">✅ 已实现</td><td class="mono" data-page-node-id="ckNnw4Xuo9Dj1dgMzlMXbH">/api/v1/sentiment/daily/export → 115,775 字节，<b class="ok" data-page-node-id="GGXSWsFoJtwOzDZIzQf4ng">0 外链</b>、0 个 &lt;script src&gt;/&lt;link&gt;/&lt;img&gt;，1 个内联 style + 5 个内联 SVG → 完全离线自足</td></tr>
+<tr data-page-node-id="FcEVpbzEqR1abUySJI44dn"><td data-page-node-id="RAVkfKnvJ20xUFBaDJMgiz">按日期回溯</td><td class="ok" data-page-node-id="duaOoQcQRnCv8sZen6czAB">✅ 已实现</td><td class="mono" data-page-node-id="PqmuFOfE2ANzQO1HslEl6B">/api/v1/sentiment/daily?date=2026-07-24 → 128 行业 / 覆盖 5602</td></tr>
+<tr data-page-node-id="JLuU4zX5ogPz9wkqV8Khcw"><td data-page-node-id="D7P9LCRISPyZPyoL6MPXrF">归档落库</td><td class="ok" data-page-node-id="kibwacHyuajuqRBEGFwOlB">✅ 已实现</td><td class="mono" data-page-node-id="qsqhqeTnKrF3qzxwG3DgYs">sentiment_daily 表，<b class="hl" data-page-node-id="xaFgByVmS6aMA1znrtU4g9">已归档 5 天</b>（09-01 / 08-31 / 08-28 / 07-24 / 06-30）</td></tr>
+<tr data-page-node-id="hV2RK19ERRvOGcz8cnHw8J"><td data-page-node-id="UziXTZlGV9v3UBC3BxRaz6">成分股日线缓存</td><td class="ok" data-page-node-id="HMdZCGAkZqHqXuEHZAluDm">✅ 已实现</td><td class="mono" data-page-node-id="bUbeho5uGM7TrChokPlrdW">daily_bar_cache 16,806 行 / 3 个交易日；stock_industry 5,642 只</td></tr>
+<tr data-page-node-id="qhA39ZKSkvhKvcBRWMQtAi"><td data-page-node-id="6vX7eHFC04SJV3504rJfgU">防残缺落库</td><td class="ok" data-page-node-id="TkWrkYH8hKAOGcIzMoGtcS">✅ 已实现</td><td class="mono" data-page-node-id="ze3AIhTdnzgOHyOqe6UlFr">is_degraded() 守卫：上游限流抓成空时不写缓存，避免空报告被固化</td></tr>
+<tr data-page-node-id="CHBJ6fF2sCRpCK2hftxoJH"><td data-page-node-id="OhUtq6AEG55trNDwQhgYKw">缓存状态提示</td><td class="ok" data-page-node-id="VJrosS5xxGbq9v4GXI2FOO">✅ 已实现</td><td data-page-node-id="RMIv0JeeBzvdlUPl8cLrMG">页面显示「读取自缓存」或「计算耗时 X.Xs」</td></tr>
+<tr data-page-node-id="RjVKEvb9xLV2u8zjKJRn2K"><td class="hl" data-page-node-id="3J2qWXb3RoIpGKwy8tfmCN">归档目录（哪些日期已生成）</td><td class="gap" data-page-node-id="A7dlZnp1cmxUrPxJfEhSB1">❌ 无</td><td class="gap" data-page-node-id="AMGBuOlxNsWdaFbyqlTUC9">没有 list 接口，<b data-page-node-id="rrVjLvuCaAVtCJRJ3hsllF">用户无法知道哪 5 天已归档</b>，只能盲猜</td></tr>
+<tr data-page-node-id="se3ujxtREPlOz2e2IGFR4K"><td class="hl" data-page-node-id="iWMYGSWUz2b7BA73RPpwFJ">前端归档入口</td><td class="gap" data-page-node-id="M5JGXUEBB86jFkAlpECuTk">❌ 无</td><td class="gap" data-page-node-id="8hcmq0t6ll8RVmDKXPtvze">工具栏只有一个裸 DatePicker，无历史列表、无一键跳转</td></tr>
+<tr data-page-node-id="kKQP9qqvBQKWYSB9UeEEWi"><td class="hl" data-page-node-id="wgG3d92WPh6EgJcR6HboRU">导出件服务端留存</td><td class="gap" data-page-node-id="WMbqgLqgBvnChpJqPAAVid">❌ 无</td><td class="gap" data-page-node-id="gT5GwWxwMDCJugQCJ5XlyA">导出落浏览器下载目录，项目内无副本（docs/ 下 5 份是我手工生成的）</td></tr>
+<tr data-page-node-id="yEWTOwEbcYphUuUYtxuhTi"><td data-page-node-id="AgH5qEdQP5O6OxGc4mGpiN">冷启动进度反馈</td><td class="warn" data-page-node-id="4tX1ZfmjyyfRVdkOf0SJ3J">⚠️ 偏弱</td><td class="warn" data-page-node-id="71At2dPo2VOJn1JSZuUZd4">静态文案写「约需 30–60 秒」，实测 19.8s；无进度条，20 秒无反馈易误判卡死</td></tr>
+</tbody>
+</table>
+
+<h2 data-page-node-id="SAe8gzk62TtDKVkxhX2rBK">二、性能实测：归档的价值被严重低估</h2>
+<div class="bars" data-page-node-id="zSPBo5nnt0E0UBSeS9iOSE">
+  <div class="bar-row" data-page-node-id="pXtfDXDaAHuc1kFUVzF34J">
+    <div class="lbl" data-page-node-id="SiqJIqp6ySf9sBUhXKYz3n">冷启动</div>
+    <div class="bar-track" data-page-node-id="CPH4klQCZ9SntwX7pTyLmI"><div class="bar-fill" style="width:100%;background:linear-gradient(90deg,#ef4444,#f38ba8)" data-page-node-id="NALD62ubiXxrZPwLjBFm6X">19.78 s · 逐只抓 5,624 只日线</div></div>
+  </div>
+  <div class="bar-row" data-page-node-id="w4s6Y9hCZSCj5acFvvlMOw">
+    <div class="lbl" data-page-node-id="oNra2JIOnTyAuChNZM5GK5">缓存命中</div>
+    <div class="bar-track" data-page-node-id="kJ0F3UOoiP8N4AGgHvlEbQ"><div class="bar-fill" style="width:2.2%;background:linear-gradient(90deg,#22c55e,#a6e3a1);min-width:150px" data-page-node-id="zcNULAAmkkzKQ0WU0IFbib">0.006 s</div></div>
+  </div>
+  <div class="bar-row" data-page-node-id="HS8Wl3kvANo0c2Ft2ShFvE">
+    <div class="lbl" data-page-node-id="zjBH0Fn4kpNZEGSNMTMS5g">导出 HTML</div>
+    <div class="bar-track" data-page-node-id="nMUkM412wF3jpNPw1aqMYL"><div class="bar-fill" style="width:1.6%;background:linear-gradient(90deg,#89b4fa,#89b4fa);min-width:150px" data-page-node-id="3S20RH4IE6OwiQoSSUyEV4">0.004 s</div></div>
+  </div>
+</div>
+<p class="lead" data-page-node-id="oiwUurRkMOYdVolQrJoVfL">缓存命中比冷启动快 <b class="hl" data-page-node-id="UqhOfP4Hm574F4j1ml9mAF">约 3,300 倍</b>。差距如此之大，却没有任何 UI 引导用户走缓存路径——这是当前最大的浪费。</p>
+
+<h2 data-page-node-id="Tdiaz2SbUPsAuXMjHyPffr">三、拟议 UI：工具栏 + 归档抽屉</h2>
+
+<div class="mock" data-page-node-id="MG6db95Ax6aGtW22c3i3ER">
+  <div class="mock-bar" data-page-node-id="EQyeeSo0wwwFXYZN3zRrMQ">
+    <span class="mock-title" data-page-node-id="k68QH9NC1uoPWp3dOsBJJx">市场情绪日报</span>
+    <span class="btn" data-page-node-id="ri3sb6aY8VkQmC8odqx64T"><span style="color:var(--text-dim)" data-page-node-id="VIlfaw7d9UFTPgKBbQ18at">📅</span> 2026-08-28 <span style="color:var(--text-dim)" data-page-node-id="M8bmMHO4Bf25j23KBJGjLe">▾</span></span>
+    <span class="btn primary" data-page-node-id="0lfGD3RXBEn8e1ualOM7Lr"><span class="dot" data-page-node-id="sXAa2bwscwEch0UNMBkUWA"></span> 归档 (5)</span>
+    <span class="btn" data-page-node-id="s4EpBkfjMyxKI3cHLKOgjN">↻ 重新计算</span>
+    <span class="btn" data-page-node-id="hgiyyL0ecnYrJxJ9FDx6T4">⬇ 导出 HTML</span>
+    <span class="dim" style="font-size:11.5px" data-page-node-id="IDfKJUQXMoiAimfBUNJwgh">2026-08-28 · 读取自缓存</span>
+  </div>
+  <div class="mock-body" data-page-node-id="gmCsnMPeHcZRLXqKQdekzm">
+    <div class="drawer" data-page-node-id="L4WLDRF09tGHmiZXW71BBL">
+      <div class="drawer-hd" data-page-node-id="oQR24ifdzYKFi3GuYnwxwG">
+        <span data-page-node-id="Kq9cd9V1vszSCDmzvE3fOI">已归档交易日 <span class="dim" data-page-node-id="Ah80QzbgTSlI1JMkCf9EXk">· 共 5 天，点击秒开</span></span>
+        <span class="dim mono" data-page-node-id="q95xcn77P1xUGY7dt932De">GET /api/v1/sentiment/dates</span>
+      </div>
+
+      <div class="arc-row" data-page-node-id="yhleNYffPahPmc4fz8u4Bq">
+        <span class="arc-dot" style="background:var(--ok)" data-page-node-id="XKguFDA2hKjYAfOkCFGqBj"></span>
+        <span class="arc-date" data-page-node-id="WbKNGeH5e4KvpIxAGcwQZw">2026-09-01</span>
+        <span class="arc-meta" data-page-node-id="u2uz04IY8yEYcKJsYWbb2w">生成于 09-01 20:36 · 覆盖 5,188 只 · 128 行业 · 龙虎榜 11 · 题材 5 · 93 KB</span>
+        <span class="arc-act" data-page-node-id="iUBDkNIV7rJaymPxOjARJm"><span class="mini hot" data-page-node-id="HODcUMS0rsAS5yQKgw5UvL">打开</span><span class="mini" data-page-node-id="tdFc9mzJ15XJMnSCYvlzXu">⬇ HTML</span></span>
+      </div>
+      <div class="arc-row" data-page-node-id="aBHP5knkzVePKJOChh5GXZ">
+        <span class="arc-dot" style="background:var(--ok)" data-page-node-id="hBfohFWBepaIPUSRQRuHbN"></span>
+        <span class="arc-date" data-page-node-id="6J5rwNjCyg4JngZf8DUCpz">2026-08-31</span>
+        <span class="arc-meta" data-page-node-id="8GMPhhDeYa7OT6mC4pJhqE">生成于 09-01 19:57 · 覆盖 5,623 只 · 128 行业 · 龙虎榜 11 · 题材 5 · 100 KB</span>
+        <span class="arc-act" data-page-node-id="iltxshb1EYE1HxLYshkEEN"><span class="mini hot" data-page-node-id="KMlXNqEx43XDgQAICgcXKC">打开</span><span class="mini" data-page-node-id="8HnGEkbUvU04Ag4aMUPgJ0">⬇ HTML</span></span>
+      </div>
+      <div class="arc-row" style="background:rgba(232,128,78,.07)" data-page-node-id="CBC9w6G2S7If0QY2H76pyq">
+        <span class="arc-dot" style="background:var(--primary)" data-page-node-id="Wcq0AYHBVC7QZDVbTD5ajL"></span>
+        <span class="arc-date" style="color:var(--primary-light)" data-page-node-id="CdLwj4UHbvUWgfCKeey279">2026-08-28</span>
+        <span class="arc-meta" data-page-node-id="GeQnQEdLe3NTMqn2sWHwKf">生成于 09-02 13:29 · 覆盖 5,624 只 · 128 行业 · 龙虎榜 11 · 题材 5 · 91 KB <span class="hl" data-page-node-id="mAuwi8rZtumGbHHNGljcon">← 当前</span></span>
+        <span class="arc-act" data-page-node-id="rue0PZTfoElOMrwNE8G2BA"><span class="mini hot" data-page-node-id="CBnVIA3MDkzrBUSCbWS1r4">打开</span><span class="mini" data-page-node-id="zJzM9cePsjJV4jJkVQ2RCD">⬇ HTML</span></span>
+      </div>
+      <div class="arc-row" data-page-node-id="vREjp6SFOBO1j8lHW1Wk2A">
+        <span class="arc-dot" style="background:var(--ok)" data-page-node-id="5GhrDMf2FSCgzwjZ4RXEO3"></span>
+        <span class="arc-date" data-page-node-id="5BGFk1e2SaK17Avo7ZAhJc">2026-07-24</span>
+        <span class="arc-meta" data-page-node-id="BUSwmpCDRaW0uuLKjBZyVP">生成于 09-01 20:36 · 覆盖 5,602 只 · 128 行业 · 龙虎榜 11 · 题材 5 · 81 KB</span>
+        <span class="arc-act" data-page-node-id="RfMHcJDZXKbvEVeyF9YC3u"><span class="mini hot" data-page-node-id="b46DJCygsCAjsm7t6geEHQ">打开</span><span class="mini" data-page-node-id="ZFhFe6XgBy2B2cVEliBqNx">⬇ HTML</span></span>
+      </div>
+      <div class="arc-row" data-page-node-id="JArhQN2xZa9BOpkTeQFDSS">
+        <span class="arc-dot" style="background:var(--ok)" data-page-node-id="5RCnjO0AyuSDgfzCpubbnp"></span>
+        <span class="arc-date" data-page-node-id="zx5Fn2xjEGSdT5uFUR0WQd">2026-06-30</span>
+        <span class="arc-meta" data-page-node-id="TqR8BcjFA61iaJbuBbyOxP">生成于 09-01 20:34 · 覆盖 5,581 只 · 128 行业 · 龙虎榜 11 · 题材 5 · 141 KB</span>
+        <span class="arc-act" data-page-node-id="46GgNTWKPsv2lyGa9CAsdu"><span class="mini hot" data-page-node-id="tnYpTsaxbHujK7a7G7wHEh">打开</span><span class="mini" data-page-node-id="8dkJisqQddxpMH8zAzdakE">⬇ HTML</span></span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="two" data-page-node-id="z0XQ0Fd3hUMB8tzFLZiARc">
+  <div data-page-node-id="6FY4vs8ziBVi9kA9eOOzUV">
+    <h3 data-page-node-id="wr87XsjsNzvrlZVmQp919C">DatePicker 归档标记</h3>
+    <p class="lead" data-page-node-id="PIPoGpaM3CrJdEZ7NPbvv5">已归档日期在日历上直接标出（橙底 + 圆点），用户在选日期前就知道哪些能秒开。</p>
+    <div class="cal" data-page-node-id="pILyKO1X5MfI8uJlgpfAR2">
+      <div class="hd" data-page-node-id="GpZrs81xB5wDNs2Dn87eES">一</div><div class="hd" data-page-node-id="rX4Uxl1GqfjKuObcpepJIA">二</div><div class="hd" data-page-node-id="fQ6LMAATAEIj3tIKLUtzHC">三</div><div class="hd" data-page-node-id="BBFrlfMASF46Mch1EoGtky">四</div><div class="hd" data-page-node-id="SlZ9zFwS6KY5dIS54ocuTe">五</div><div class="hd" data-page-node-id="Bw1p3TaZmfDwyEH1r1G7YE">六</div><div class="hd" data-page-node-id="iQpAoc5zE1GQcPat5H5xNY">日</div>
+      <div class="d we" data-page-node-id="FeHnKHNx1rSIQ3I8Sv8mWS"></div><div class="d we" data-page-node-id="WhigrkHqW0udHeKQuI9JXX"></div><div class="d we" data-page-node-id="sDlEOEx0qsv88nUdFvOsl1"></div><div class="d we" data-page-node-id="iLDudRme2inecW2QXuFQWJ"></div><div class="d" data-page-node-id="yAm1an91HIGhk2QslvzUwg">1</div><div class="d we" data-page-node-id="oF7ny2pd0Lr04OFrB1u1TE">2</div><div class="d we" data-page-node-id="hWBgNS8NUlbwpOiutWiaEL">3</div>
+      <div class="d" data-page-node-id="HHGRNzDk5q8rZxAqdG5XnK">4</div><div class="d" data-page-node-id="wS8yf2bSTpnYTHLGuCfpuF">5</div><div class="d" data-page-node-id="wMDcqAwY3zsreWjkNURH3f">6</div><div class="d" data-page-node-id="j8cPDSQWjjHjJl6vwPTcOV">7</div><div class="d" data-page-node-id="7c2t6ywCm6QaODnTSywbry">8</div><div class="d we" data-page-node-id="ZcRnrSu6rmE6Gb3F1d36Kv">9</div><div class="d we" data-page-node-id="NWCOCecQx9fFZRwg4VyW1M">10</div>
+      <div class="d" data-page-node-id="aILZpscXB7SajJC46N3pcv">11</div><div class="d" data-page-node-id="cUQoyAY4xy8Nhgw7tqHRGl">12</div><div class="d" data-page-node-id="9V7CGFeLyA18GDUUOCGzMI">13</div><div class="d" data-page-node-id="uISFKuKk9PiLoNlauHJspU">14</div><div class="d" data-page-node-id="JuCfs5j0QaN5DqRlIbplIJ">15</div><div class="d we" data-page-node-id="7FFXCLaqijRXC3oEJcsr6i">16</div><div class="d we" data-page-node-id="AOQEiC6YFHfgSaxlLOPQ4X">17</div>
+      <div class="d" data-page-node-id="kzvPaiyNvJ7gaMjJTP8FHi">18</div><div class="d" data-page-node-id="xbqwsnwQpr7fsHbAFZ1j9r">19</div><div class="d" data-page-node-id="8ppyUEQGZ83hMaKWMsK75V">20</div><div class="d" data-page-node-id="OAsCpjCpiUrlALaFFA358j">21</div><div class="d" data-page-node-id="S69itT2AyTBt0uoRAE1LJ6">22</div><div class="d we" data-page-node-id="EIqzS9EAdCgqk25kirYPOu">23</div><div class="d we" data-page-node-id="4AgTxvazwbEKHFPgxgPhSJ">24</div>
+      <div class="d" data-page-node-id="PgYoSN8VJI00XEgxwBrqKF">25</div><div class="d" data-page-node-id="zBx1S9VnZBlBnFOA2YG6HE">26</div><div class="d" data-page-node-id="IKr80xs7PuHDbkfZld5dC8">27</div><div class="d arch" data-page-node-id="p7vRvSDYdjPKEl4gWLJi94">28</div><div class="d" data-page-node-id="oR9jwi1FrBy9fnF8hsifvY">29</div><div class="d we" data-page-node-id="Lr8ouddtZcW2KARbBCoNIO">30</div><div class="d arch" data-page-node-id="W6cQUTiPZuSayJ2LQmjc76">31</div>
+    </div>
+    <p class="lead" style="margin-top:10px" data-page-node-id="zjoR33x1mIoypkZWPoJS2n"><span style="display:inline-block;width:9px;height:9px;border-radius:2px;background:rgba(232,128,78,.5);vertical-align:middle" data-page-node-id="N9aHUBYSAdFVnj2bzsAVqH"></span> = 已归档（秒开）　·　灰字周末 = 非交易日</p>
+  </div>
+  <div data-page-node-id="cjMAWpfGl7UPtVqPdi10SW">
+    <h3 data-page-node-id="1VJu6MZidxZnEcdcETIEH5">未归档日期的预期提示</h3>
+    <div class="note" data-page-node-id="8VUgBztAzQxM9bLEF5dbMc">
+      选中 <b data-page-node-id="sNy9mHI07B4jGTGHjW0Ejc">2026-08-27</b>（未归档）<br data-page-node-id="OClYRfj90Y6aXn2Nl7MPge">
+      <span class="warn" data-page-node-id="otXRWjMKGh8MyURU84j98C">⚠ 该交易日尚未归档，首次生成需重新抓取全市场成分股日线，<b data-page-node-id="RKht6iqp4FHpiFHbVEnIx7">约需 20 秒</b>。</span><br data-page-node-id="oWzECsaBHYu1QCF0ZJiKNJ">
+      <span class="dim" data-page-node-id="DDTk1wUJkZBQhLYm5GYCZS">生成后自动归档，下次访问即时打开。</span>
+      <div style="margin-top:9px" data-page-node-id="h6soHVQvmcIc70D0TJHr5L"><span class="mini hot" data-page-node-id="ipoewTNupZYOlI6y8GTYNy">立即生成</span> <span class="mini" data-page-node-id="IiluVr9KGih3iearJAHySr">取消</span></div>
+    </div>
+    <p class="lead" data-page-node-id="AtvkYrwFIlRey50N2AstvZ">把现在的静态文案「约需 30–60 秒」换成<b data-page-node-id="prK4FdrDtBI1045mSR7QEQ">实测值 + 明确选择权</b>，避免用户误以为卡死。</p>
+    <h3 data-page-node-id="8eAl8gnJ2aGk361IneaW3l">导出件服务端留存</h3>
+    <p class="lead" data-page-node-id="StqaJXMIAm6QweQUY6ENny">导出时同步写一份到服务端，形成项目内真正的归档库：</p>
+    <p class="mono dim" style="background:var(--bg-surface);padding:9px 12px;border-radius:5px;border:1px solid var(--border)" data-page-node-id="tAAh1uFJDd2PHA3NkRCaBz">
+      data/reports/<br data-page-node-id="qEPDIF5HjRUpvp5H1tvktI">
+      ├─ sentiment-2026-09-01.html　93 KB<br data-page-node-id="U63deAGBUmYb2GYwFf3YhL">
+      ├─ sentiment-2026-08-31.html　100 KB<br data-page-node-id="2upC76FL6TvK8XLhwjqRko">
+      ├─ sentiment-2026-08-28.html　91 KB<br data-page-node-id="AIzqu039PQbsBYLVr6wsQ4">
+      ├─ sentiment-2026-07-24.html　81 KB<br data-page-node-id="KBSwIbId3UUREmDchsFrXQ">
+      └─ sentiment-2026-06-30.html　141 KB
+    </p>
+    <p class="lead" data-page-node-id="gEeD2DVFDYOrmGHl2h1aIM">归档列表的「⬇ HTML」直接取服务端这份，<b data-page-node-id="UcwtmTFwPdFgIF9J8fRwKy">不用每次重新渲染</b>，也替代现在手工往 docs/ 扔文件的做法。</p>
+  </div>
+</div>
+
+<h2 data-page-node-id="dpmjJBuQmiFKsMHwTQAuKg">四、分阶段实施</h2>
+
+<div class="phase" data-page-node-id="6vn9gpg4koXNxNhxgFUJfO"><div class="phase-n" data-page-node-id="k1YzUCMyBO4G8rfiF5jJrW">1</div><div class="phase-b" data-page-node-id="vvZsuS8Iyhotkb0sa3ZBwn">
+  <div class="t" data-page-node-id="N1IOpofOv5R3was1LyVr2R">后端：归档目录接口<span class="tag req" data-page-node-id="p4HBBYlUOKXlgQQH64nF9N">必做</span></div>
+  <div class="d" data-page-node-id="3b6Q967gwzVZ8fjyXMsfng">
+    <ul data-page-node-id="ibUIek8PHosr8ZDDzGvWYg">
+      <li data-page-node-id="GObJyYWBUw6sHRBGcwaD4L"><b data-page-node-id="WohY9r9uFNBqq7Q8A0VjDP">Repository::list_sentiment_daily(limit)</b> → <span class="mono" data-page-node-id="9bFGLttZso5RPJW6wFmqxY">Vec&lt;SentimentArchiveEntry&gt;</span>（date / generated_at / payload_bytes / covered_count / board_count）</li>
+      <li data-page-node-id="SnfDatQ1RuvWM7GpeGGBxP"><b data-page-node-id="ZNFGJeMJCHmPWPQB2zN6gJ">GET /api/v1/sentiment/dates</b> → 已归档日期列表，按日期倒序</li>
+      <li data-page-node-id="L2Gll8Vq94MfZRLuIlXSUl">covered_count 取法：<b data-page-node-id="54EA6GKsV4laxpgSJrEoTH">每次反序列化 5 条 payload</b>（约几毫秒）而非加冗余列——避免 schema 变更与迁移；条目数天然只有个位数到几十条</li>
+      <li data-page-node-id="l7PEEHrEoRDJ9DmNq9eloJ">可选：<b data-page-node-id="GtLh885cODjQljcDibzo0n">DELETE /api/v1/sentiment/daily?date=</b> 删除归档，配合「重新计算」清掉坏数据</li>
+    </ul>
+    改动文件：<span class="mono" data-page-node-id="Ma5Iwc7EGttH4gW5xzoNoD">crates/storage/src/repository.rs</span>、<span class="mono" data-page-node-id="1vohyEqKYPAfqXuqbLHgBn">crates/api/src/routes/sentiment.rs</span>
+  </div>
+</div></div>
+
+<div class="phase" data-page-node-id="19pj0phRyACqYUPGzuHvqx"><div class="phase-n" data-page-node-id="RlhbMPcX1CAyCJ9kQuBRtP">2</div><div class="phase-b" data-page-node-id="lisUCzxnypKPHaPEmq5NAh">
+  <div class="t" data-page-node-id="T98ImA7saDBREXCLXQPgl7">前端：归档抽屉 + 日历标记<span class="tag req" data-page-node-id="9vMiBHIziTmPOQHPCBUh6E">必做</span></div>
+  <div class="d" data-page-node-id="gEiKw9I7uHcLUIlneuWClJ">
+    <ul data-page-node-id="XQ9iP60zXvJ5no5nmk6QIp">
+      <li data-page-node-id="utSYSDn3F5n8FxzfJMGJL9">工具栏加「<b data-page-node-id="39sGkDm8aFmFzYO820vH4e">归档 (N)</b>」按钮 → Drawer 列出已归档日期（生成时间 / 覆盖只数 / 体积），点击秒开</li>
+      <li data-page-node-id="iC8CVkxOOZUM9yRDV40h1E">DatePicker 用 antd <span class="mono" data-page-node-id="WgRmbt9dY5fjWAwEWt23Pn">cellRender</span> 给已归档日期加橙底圆点</li>
+      <li data-page-node-id="aF5cyQaFFGhSSkYmk7HWRN">选中未归档日期时弹确认条，给出实测预期耗时</li>
+      <li data-page-node-id="ld8Hx3VJmRKv7kpW9B3cSm">新增 <span class="mono" data-page-node-id="uOVzkHyBxIoKqOcduSjBIE">api.listSentimentDates()</span> 与 <span class="mono" data-page-node-id="CAxTituNrCBvlFO9lGYTf3">SentimentArchiveEntry</span> 类型</li>
+    </ul>
+    改动文件：<span class="mono" data-page-node-id="ZTEaPCG6TWrSuCd0rBGDwM">frontend/src/pages/MarketSentiment.tsx</span>、<span class="mono" data-page-node-id="GW0kZV8pssn0ub6u8RSOVS">frontend/src/api/index.ts</span>
+  </div>
+</div></div>
+
+<div class="phase" data-page-node-id="LHhUxlOYr7MWwBfKBAjKib"><div class="phase-n" data-page-node-id="lk1C3HM4gFFjXhXIqc87wv">3</div><div class="phase-b" data-page-node-id="3WXFatyCvDckcynQGB6u2X">
+  <div class="t" data-page-node-id="TbBzjx6MQL641L8PAqyQo0">导出件服务端留存<span class="tag req" data-page-node-id="fIC6nLYwjPB1oMaDPkV6qp">必做</span></div>
+  <div class="d" data-page-node-id="7BPVjneB9lDqR4M4s9dA9j">
+    <ul data-page-node-id="IGS3vMkLOPtGKfzCoVW1oa">
+      <li data-page-node-id="t3vbs6qD9Z8mTm3l9U5FPe"><span class="mono" data-page-node-id="8iqiIOPXFBLQe2PXQ37tJ0">export_daily</span> 在返回浏览器下载的同时，写一份到 <span class="mono" data-page-node-id="iLM0YQfkIypKoZenNecOF6">data/reports/sentiment-{date}.html</span></li>
+      <li data-page-node-id="3BnAYTHAPrR8Ih467U0agn">归档抽屉的「⬇ HTML」直接从该目录取，命中则不再渲染</li>
+      <li data-page-node-id="lXC0v2LFEtyTApCrnakMD2">目录可通过配置项开关，写入失败仅记日志、不影响导出本身（与现有 <span class="mono" data-page-node-id="8L0y95G9Wj6SBIDJVgmPJP">cache_if_complete</span> 的容错风格一致）</li>
+    </ul>
+    改动文件：<span class="mono" data-page-node-id="uTrsnIdNZ4fxUJ45Oy24y5">crates/api/src/routes/sentiment.rs</span>
+  </div>
+</div></div>
+
+<div class="phase" data-page-node-id="NqCcatOGFy5ujcrXb1HAsV"><div class="phase-n" data-page-node-id="nJmGQhbktjhbECjN0oSxZD">4</div><div class="phase-b" data-page-node-id="aSYBAwF1bBEramsmrHDJ3R">
+  <div class="t" data-page-node-id="rLBSlkG2KBJSbfssS7fJ5H">收盘后自动归档<span class="tag opt" data-page-node-id="7LNWfD3YnspsF1AUM3fno1">可选 · 依赖 scheduler</span></div>
+  <div class="d" data-page-node-id="il4KG4Sp09vTLiJH9iSzjA">
+    <b data-page-node-id="D5Fv8fqSBf7KGVxUDs3SbT">注意：scheduler crate 目前只有 2 行 stub</b>（<span class="mono" data-page-node-id="Saai5qcZuWsuHZGQCDMBy5">pub struct Scheduler;</span>），要从零搭。
+    每交易日 15:30 自动生成当日日报并落库，让归档从「被动等用户触发」变成「主动积累」。
+    建议放在前 3 阶段验证稳定后再做。
+  </div>
+</div></div>
+
+<h2 data-page-node-id="yiRye8zzNEeYiGcyFa8VF5">五、风险与约束</h2>
+<table data-page-node-id="yB8zf9MFW238FhqSmAPTp7">
+<thead data-page-node-id="5pMneyNKnSmnpV1kWRZ31K"><tr data-page-node-id="aVxrYyox08O9GCIAi1Pc5k"><th style="width:170px" data-page-node-id="0MlfES6xnfyrfUpdm2IYGI">项</th><th data-page-node-id="49B2trzpoEzqfaIdcbQ0Av">说明</th></tr></thead>
+<tbody data-page-node-id="54DkH0jWQU0gKGbWqH5C1w">
+<tr data-page-node-id="NOCgmDbxRn3vRCE8MGSLNO"><td data-page-node-id="1Q0EiBkloH0WJmRg1GbHjc">数据库迁移</td><td class="ok" data-page-node-id="HeBmLoGbJwWHCVDTn0rpFc">无需迁移。<span class="mono" data-page-node-id="LOHx4MHcP8DyoNWKD1wbEi">sentiment_daily</span> 已有 date / payload / generated_at 三列，目录接口纯查询即可</td></tr>
+<tr data-page-node-id="V2IcFfrCaMhuKhaguJcppb"><td data-page-node-id="DElLoLg9qWjOz3Ff0adjRC">向后兼容</td><td class="ok" data-page-node-id="FReT1yEVEjDFvVEVs4imzl">全部为新增字段与新增路由，不改动现有 <span class="mono" data-page-node-id="I7XoKQxVsG9z6Cnzp0zXDM">SentimentDaily</span> 结构，前端已有功能不受影响</td></tr>
+<tr data-page-node-id="O9vLkBKJb4eaF41mNEB1f3"><td data-page-node-id="U3uwd0eSAFwTHVlXmm9wsg">payload 解析开销</td><td class="ok" data-page-node-id="vuBEzfWMTEbCTUrkN1FTMj">归档条目数量级为个位数～几十条，每次反序列化约几毫秒；若将来归档上千天再改为冗余列</td></tr>
+<tr data-page-node-id="0DI252ZI8PhQkv41wHROLM"><td data-page-node-id="qbeJafXbBBqNOTLGqZYlkh">服务端留存体积</td><td class="warn" data-page-node-id="q95slinWmocVzsxtBc0iwV">单份 81–141 KB。按每交易日 100 KB 估算，一年约 25 MB，可接受；可加保留天数上限</td></tr>
+<tr data-page-node-id="YHJ2ZHY8U76khGKHGETWEc"><td data-page-node-id="PbXhd5LRV8HPUtatdeZKKj">冷启动并发压力</td><td class="warn" data-page-node-id="Hweyueezr1BJX6luX6AGjk">现有并发 24、腾讯会限流。阶段 4 若做自动归档，需错峰并保留 <span class="mono" data-page-node-id="gxBFmqBSQw4MJmy9aD7t9Q">is_degraded</span> 守卫</td></tr>
+</tbody>
+</table>
+
+<div class="note good" data-page-node-id="OJdLU4M9ziC7rzzB5mTVOm">
+<b data-page-node-id="uhOHHa5iWD4K3EAulZ86WT">建议节奏</b>：阶段 1–3 一次做完并验证（归档可发现 + 可管理 + 可留存形成闭环），阶段 4 单独一轮。
+这样每一轮都有可验证的交付物，符合你一贯的「先引擎、再进阶」分阶段验证习惯。
+</div>
+
+<footer data-page-node-id="5fAKBVGzMmNSN3cH0bdCB1">
+数据来源：本机 stock-buddy 实测（SQLite <span class="mono" data-page-node-id="11uVLUBpeEJXupPYvhfy3c">data/stock.db</span> · <span class="mono" data-page-node-id="6iAAbrEPHVgEwbF2R9oC5R">sentiment_daily</span> 表 5 条归档）<br data-page-node-id="E2VLtMDauqissPGNX2DC5y">
+冷启动实测日期 2026-08-28（19.78s，覆盖 5,624 只）；缓存命中与导出耗时为 2026-07-24 实测<br data-page-node-id="3wOY3IAGJx0YniJ7lCCHHL">
+方案生成时间 2026-09-02 · 本预览为静态 HTML，不含交互逻辑，仅用于确认视觉与信息结构
+</footer>
+
+</div>
+</body>
+</html>

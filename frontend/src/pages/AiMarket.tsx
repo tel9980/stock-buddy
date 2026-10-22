@@ -71,7 +71,7 @@ export default function AiMarket() {
 
       <div ref={scrollRef} className="ai-report-container">
         {content ? (
-          <div className="ai-report-content">
+          <div style={{ position: 'relative' }}>
             <MarkdownView content={content} />
             {loading && <span className="ai-cursor">▊</span>}
           </div>

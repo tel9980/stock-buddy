@@ -1,4 +1,4 @@
-# Stock-Assister
+# Stock Buddy
 
 面向 A 股市场的智能投资辅助系统，采用 Rust 后端 + React 前端的前后端分离架构。提供行情追踪、技术分析、AI 研判、买卖信号检测等全链路辅助能力。
 
@@ -102,7 +102,7 @@ appcore (核心模型与公共类型)
 ## 项目结构
 
 ```
-stock-assister/
+stock-buddy/
 ├── Cargo.toml                  # Workspace 配置
 ├── .env                        # 环境变量
 ├── .env.example                # 环境变量模板
@@ -186,7 +186,7 @@ cp .env.example .env
 ```env
 LISTEN_ADDR=0.0.0.0:8080     # API 服务监听地址
 DB_PATH=data/stock.db         # SQLite 数据库路径
-RUST_LOG=info,stock_assister=debug
+RUST_LOG=info,stock_buddy=debug
 
 # LLM 配置（可选，不配置则 AI 功能不可用）
 LLM_API_KEY=your-api-key
@@ -201,7 +201,7 @@ LLM 支持所有 OpenAI 兼容接口，可直接使用 DeepSeek、通义千问�
 ```bash
 # 方式一：编译后直接运行（推荐，避免网络沙箱问题）
 cargo build
-./target/debug/stock-assister
+./target/debug/stock-buddy
 
 # 方式二：cargo run（如遇网络错误请用方式一）
 cargo run

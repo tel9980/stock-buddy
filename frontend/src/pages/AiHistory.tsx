@@ -4,6 +4,7 @@ import {
 } from 'antd';
 import { api, AiHistoryItem, AiAnalysisHistory, AnalysisType } from '../api';
 import MarkdownView from '../components/MarkdownView';
+import { usePersistedState } from '../stores/persistedState';
 
 const TYPE_META: Record<AnalysisType, { label: string; color: string }> = {
   diagnose: { label: '个股诊断', color: '#e8804e' },
@@ -15,7 +16,7 @@ const TYPE_META: Record<AnalysisType, { label: string; color: string }> = {
 type FilterKey = AnalysisType | 'all';
 
 export default function AiHistory() {
-  const [active, setActive] = useState<FilterKey>('all');
+  const [active, setActive] = usePersistedState<FilterKey>('ai.history.filter', 'all');
   const [items, setItems] = useState<AiHistoryItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [detail, setDetail] = useState<AiAnalysisHistory | null>(null);
@@ -152,9 +153,7 @@ export default function AiHistory() {
                 {TYPE_META[detail.analysis_type].label}
                 {detail.model ? ` · ${detail.model}` : ''}
               </div>
-              <div className="ai-report-content">
-                <MarkdownView content={detail.content} />
-              </div>
+              <MarkdownView content={detail.content} />
             </div>
           ) : null}
         </Drawer>

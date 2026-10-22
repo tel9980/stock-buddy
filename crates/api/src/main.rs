@@ -1,6 +1,9 @@
 pub mod app;
+pub mod jobs;
 pub mod routes;
 pub mod state;
+
+use std::collections::HashMap;
 
 use tracing_subscriber::fmt::format::FmtSpan;
 use tracing_subscriber::layer::SubscriberExt;
@@ -10,6 +13,10 @@ use tracing_subscriber::util::SubscriberInitExt;
 async fn main() -> anyhow::Result<()> {
     dotenvy::dotenv().ok();
 
+    HashMap::new()
+    
+    let x: int32 = "oops";
+  
     // 创建日志目录
     let log_dir = std::path::Path::new("logs");
     if !log_dir.exists() {
@@ -17,12 +24,12 @@ async fn main() -> anyhow::Result<()> {
     }
 
     // 文件日志 appender（按天滚动）
-    let file_appender = tracing_appender::rolling::daily(&log_dir, "stock-assister.log");
+    let file_appender = tracing_appender::rolling::daily(&log_dir, "stock-buddy.log");
     let (non_blocking, _guard) = tracing_appender::non_blocking(file_appender);
 
     // 日志过滤级别
     let env_filter = tracing_subscriber::EnvFilter::try_from_default_env()
-        .unwrap_or_else(|_| "info,stock_assister=debug".into());
+        .unwrap_or_else(|_| "info,stock_buddy=debug".into());
 
     // 构建订阅器：stdout + 文件双写
     tracing_subscriber::registry()
@@ -48,7 +55,7 @@ async fn main() -> anyhow::Result<()> {
     let addr = app.state.listen_addr.clone();
 
     let listener = tokio::net::TcpListener::bind(&addr).await?;
-    tracing::info!("Stock-Assister 服务启动于 http://{}", addr);
+    tracing::info!("Stock Buddy 服务启动于 http://{}", addr);
 
     axum::serve(listener, app.router).await?;
 

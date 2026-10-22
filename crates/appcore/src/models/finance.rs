@@ -1,10 +1,19 @@
 use serde::{Deserialize, Serialize};
 
 /// 主要财务指标
+///
+/// 单位约定：金额类字段一律**万元**（上游东财返回的是元，抓取层负责 ÷10000）；
+/// 每股类为元；比率类为百分数（16.75 表示 16.75%）。
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FinancialIndicator {
     /// 报告期 (e.g. 2024-12-31)
     pub report_date: String,
+    /// 报告期类型：年报 / 中报 / 一季报 / 三季报
+    ///
+    /// 东财只给到「期」不给「是否累计」的显式标记，但同一只股票里
+    /// 一季报/中报/三季报/年报本身就是累计口径，呈现期别能让读表的人
+    /// 一眼看出「中报的 35.57 元 EPS 是 6 个月累计」而非单季。
+    pub report_type: Option<String>,
     /// 基本每股收益（元）
     pub eps: Option<f64>,
     /// 每股净资产（元）

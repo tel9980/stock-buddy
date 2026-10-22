@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-page-node-id="xw6drrbbi5AEzSKGC2PwyH">
+<head data-page-node-id="5h0odlU62D0x5O7baUvLr8">
+<meta charset="UTF-8" data-page-node-id="IPTTAwSAC5f0KYrLlQl9vQ">
+<meta name="viewport" content="width=device-width, initial-scale=1.0" data-page-node-id="5k4dNHjC60bfVFv99SiVtG">
+<title>方案 · 日线口径混用（批次内源翻转）</title>
+<style>
+  :root{
+    --primary:#e8804e; --primary-light:#f5a67a; --primary-dim:rgba(232,128,78,.14);
+    --bg-dark:#0f0f17; --bg-surface:#1a1a2e; --bg-card:#16162a;
+    --border:#2a2a42; --text:#e8e8f0; --text-dim:#9a9ab0;
+    --up:#ef4444; --down:#22c55e; --warn:#f9c74f; --ok:#43b581;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg-dark);color:var(--text);
+    font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif;
+    line-height:1.7;padding:32px 20px;font-size:14px}
+  .wrap{max-width:1080px;margin:0 auto}
+  header{border-bottom:1px solid var(--border);padding-bottom:20px;margin-bottom:32px}
+  h1{font-size:24px;font-weight:600;margin-bottom:8px}
+  h1 .tag{font-size:12px;background:var(--primary-dim);color:var(--primary);
+    padding:3px 10px;border-radius:11px;margin-left:10px;vertical-align:middle;font-weight:500}
+  .sub{color:var(--text-dim);font-size:13px}
+  h2{font-size:17px;font-weight:600;margin:36px 0 14px;padding-left:11px;
+    border-left:3px solid var(--primary)}
+  h3{font-size:14px;font-weight:600;margin:22px 0 10px;color:var(--primary-light)}
+  p{margin-bottom:12px;color:#d5d5e2}
+  code{background:#0a0a14;border:1px solid var(--border);border-radius:4px;
+    padding:1px 6px;font-family:"SF Mono",Menlo,monospace;font-size:12.5px;color:var(--primary-light)}
+  table{width:100%;border-collapse:collapse;margin:14px 0;font-size:13px}
+  th{background:var(--bg-surface);color:var(--text-dim);text-align:left;
+    padding:9px 12px;font-weight:500;border-bottom:1px solid var(--border);font-size:12px}
+  td{padding:9px 12px;border-bottom:1px solid #22223a;vertical-align:top}
+  tr:last-child td{border-bottom:none}
+  .yes{color:var(--ok)} .no{color:var(--down)} .dim{color:var(--text-dim)}
+  .card{background:var(--bg-card);border:1px solid var(--border);
+    border-radius:9px;padding:18px 20px;margin:14px 0}
+  .card.hl{border-color:var(--primary);background:linear-gradient(180deg,rgba(232,128,78,.07),transparent)}
+  .card.warn{border-color:var(--warn);background:linear-gradient(180deg,rgba(249,199,79,.06),transparent)}
+  .card.bad{border-color:var(--up);background:linear-gradient(180deg,rgba(239,68,68,.07),transparent)}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  .grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+  .stat{background:var(--bg-surface);border:1px solid var(--border);
+    border-radius:8px;padding:14px;text-align:center}
+  .stat .v{font-size:21px;font-weight:600;color:var(--primary)}
+  .stat .l{font-size:11.5px;color:var(--text-dim);margin-top:3px}
+  pre{background:#0a0a14;border:1px solid var(--border);border-radius:7px;
+    padding:14px 16px;overflow-x:auto;margin:12px 0;font-size:12.5px;line-height:1.6}
+  pre code{background:none;border:none;padding:0;color:#c8c8dd}
+  ul,ol{margin:0 0 12px 22px;color:#d5d5e2}
+  li{margin-bottom:6px}
+  .k{color:var(--primary-light);font-weight:600}
+  .foot{margin-top:40px;padding-top:16px;border-top:1px solid var(--border);
+    color:var(--text-dim);font-size:12px}
+  .tl{list-style:none;margin-left:0}
+  .tl li{margin-bottom:10px;padding-left:14px;border-left:2px solid var(--border);position:relative}
+  .tl li b{color:var(--text)} .tl .t{color:var(--primary-light);font-family:"SF Mono",Menlo,monospace;font-size:12.5px}
+</style>
+</head>
+<body data-page-node-id="xoidxag9eunwaciAAIQFnE">
+<div class="wrap" data-page-node-id="SIo1ZGMUaBzruLgmB4gGcJ">
+
+<header data-page-node-id="VF0EMXMvYrD7kszVS4Y9mk">
+  <h1 data-page-node-id="FcwnSc0XereOJOMZKgllaU">日线口径混用<span class="tag" data-page-node-id="MHGr2GietbSMAdAJxHBRWV">方案 · 已定位根因</span></h1>
+  <div class="sub" data-page-node-id="5KV2gJJSEWN0g8D3itHzBt">根因不是主源不稳定，是 <b>WAF 按请求量封了我们的 IP</b>（09-04 实测 13.6 分钟打了 28,158 次） · 建议按场景分流</div>
+</header>
+
+<div class="card bad" data-page-node-id="SElT2979K5YGZt7ZX46kAm">
+  <p style="margin-bottom:6px" data-page-node-id="P5l5vUBXywW6rpxgxGsabA"><span class="k" data-page-node-id="wdjMNcu811Xu69Hye7nG3e">一句话结论</span></p>
+  <p style="margin-bottom:0" data-page-node-id="F49k94zmf5ZHxbOxBjgCFv">滚动刷新任务按设计跑通了（805 只 / 2.8s / 0 失败），但它暴露了一个<span class="k" data-page-node-id="AS7iKHIIDteCE9pVMQHAwF">早已存在、且与刷新任务无关</span>的缺陷：<code data-page-node-id="a3GeB5GHdvPZ6TYYYQubFH">SourceBreaker</code> 是<b data-page-node-id="Jq10zoOurxE7XGr40qLWhp">逐只股票</b>判定数据源的，一旦主源在批次<span class="k" data-page-node-id="HlmtbVX6JwqEHNy1RS4uCs">中途</span>翻转，同一个批次就会一半走腾讯（前复权）、一半走新浪（不复权）。日报路径一次并发 48 抓 5000+ 只，翻转风险完全相同。<b data-page-node-id="bfuMoNPlGwS8X1Efc8YfCp">当前生产数据是干净的（已验证 25/25 只与新浪逐行一致），但风险是前瞻性的。</b></p>
+  <p style="margin-bottom:0;margin-top:10px"><b class="k">补测更新（§8）</b>：顺着「主源为什么时有时无」查下去，根因不是腾讯不稳定 —— <b>WAF 按请求量封了我们的 IP</b>。应用 09-04 在 13.6 分钟内打了 <b>28,158 次</b>行情请求（缓存未命中就满盘 5,642 只 × 并发 48），封禁持续 10 分钟以上，解封后又切回腾讯。<b>所谓「主源翻转」是我们自己制造的。</b>中途我一度以为换成 <code>ifzq.gtimg.cn</code> 就行（178 次/秒压测零失败、数据逐日一致），但 10 分钟持续验证把它也推翻了 —— 两个子域最终都会被封。建议已据此重写为 <b>方案 X：按场景分流</b>（批量走新浪、K线/回测走腾讯前复权），A1 暂缓、A2 否决。</p>
+</div>
+
+<h2 data-page-node-id="aygRYLa55ZVrH0YUXKgbf7">§1 演练是怎么把它逼出来的</h2>
+
+<p data-page-node-id="tw1rGAko4SLna8CLDLI6m1">为了让刷新路径真的跑一遍（腾讯当时熔断，任务会走 skip 分支），我临时用 <code data-page-node-id="1hYTajjCSdZbq02mLlBcye">DRILL_FORCE_REFRESH=1</code> 摘掉熔断闸门，用补跑触发任务。结果如下：</p>
+
+<div class="grid3" data-page-node-id="Ip4wtjtVbSE6QEpmUXxEZq">
+  <div class="stat" data-page-node-id="zwtzslXQHecYG6CAJT5lR2"><div class="v" data-page-node-id="OqMaGDSmR6IdWdMnIH24l2">805</div><div class="l" data-page-node-id="CZZ6lcwsSc21v4wF0IZtay">刷新只数（5633÷7 向上取整）</div></div>
+  <div class="stat" data-page-node-id="steo8HzZMAnZPWytRTcMVa"><div class="v" data-page-node-id="K4jKIXSjbLXKAmfh2UhrXt">2.8s</div><div class="l" data-page-node-id="XF8C5KzNFQfAlK4BzHKeP7">总耗时（预算估 4s）</div></div>
+  <div class="stat" data-page-node-id="jKRVFLf85Vrjk4v6cZ2Zh9"><div class="v" data-page-node-id="eabcfaDWztv8nuHfotH984">0</div><div class="l" data-page-node-id="n75TYg6cJztmnYQFpi4ury">失败只数</div></div>
+</div>
+<div class="grid3" style="margin-top:12px" data-page-node-id="TZ9PCHrWWo6ZpKcxIceA3M">
+  <div class="stat" data-page-node-id="0bUtbUJwGdUOleqAS7JpUF"><div class="v" data-page-node-id="u2wg6Kc8FUuc6gDE3KPal7">167,106</div><div class="l" data-page-node-id="axxnHMJ2euOyHoQ6dPgetm">重写行数</div></div>
+  <div class="stat" data-page-node-id="LnA3zCYbOqWg9IihvBNkoz"><div class="v" data-page-node-id="yWFc6j3qXqlH1neY3FkD2U">636ms</div><div class="l" data-page-node-id="WjDi5IJnBMrtJ67rT70qRh">落库耗时</div></div>
+  <div class="stat" data-page-node-id="j7ML4TTBREXuppl3Lq2vXc"><div class="v" data-page-node-id="oT7y8BI0KgcI2gIIzCSWUx">0</div><div class="l" data-page-node-id="i5rjiXDQXo1M0FWGt3VXvw">丢失行数</div></div>
+</div>
+
+<p data-page-node-id="mr5DDAyFskovfdH1qn1eLl">机制层面全部成立：不变量（覆盖只增不减、<code data-page-node-id="1bl64D1WZEGKLUa0GO1Pr7">complete</code> 不升级、行集合不丢）逐条验证通过。但刷新重写了 16.7 万行，我做等价性比对时发现 <b data-page-node-id="EqTcn4KkShdFkv47mZ1BhN">62,215 行 close 变了</b>——中位相对差 0.99%，最大 33.7%。</p>
+
+<h3 data-page-node-id="62xrDQEQ3zjSDfskMwRXks">时间线与证据链</h3>
+<ul class="tl" data-page-node-id="FoKzDgZ4gcAH90iOGB1WfS">
+  <li data-page-node-id="UyJXoR5JDrfCCvm1RbE0a6"><span class="t" data-page-node-id="pLdteqZFhXTHEbxGY2ZobW">11:39:27</span> 演练服务启动，刷新任务立即执行，<b data-page-node-id="zQZE8s21CD2ZqnMFj48nrO">11:39:30 完成</b></li>
+  <li data-page-node-id="5oTjsFXbaCGfDDjgqE8z5Q"><span class="t" data-page-node-id="DiFceL1RUDEUGGoUoiDNyC">11:39</span> → 742/805 只拿到的是<b data-page-node-id="uH0GRfZZ4uA6OKGEaxuuuV">前复权</b>数据 —— 说明此时腾讯是通的</li>
+  <li data-page-node-id="96DeGpiG9wGfIYKNBDSG8t"><span class="t" data-page-node-id="zAI17XpVZoAZEYfBZgVci1">11:50 / 11:51 / 11:58</span> 从 curl 与 Rust 两侧复测腾讯，<b data-page-node-id="gWz90s7FHdwsbO39fgjQ7H">均 HTTP 501</b>，连续 19 分钟未恢复</li>
+  <li data-page-node-id="6no1OUMO9ozjxngIoZzpZY"><span class="t" data-page-node-id="IFRNAAos2oHMwQrIEJH1mG">中间</span> 只有刷新任务的 805 次请求，没有其它访问</li>
+</ul>
+
+<h3 data-page-node-id="Zv3FTtx6Aqu9NSn81I6YlP">「前复权」是怎么认出来的</h3>
+<p data-page-node-id="IwP7jih1Oop45Krp9wakAq">001388 的库内收盘价与新浪（不复权）逐日比值：</p>
+<pre data-page-node-id="aJje0Fdtz2k7edGUfVVztH"><code data-page-node-id="qyy5l85ge8090VFVQUgmGH">日期          库close   新浪close   库/新浪
+2026-06-25     18.581     28.000   0.66361
+2026-07-06     17.892     26.980   0.66316
+2026-07-16     22.487     33.780   0.66569
+2026-07-17     24.740     24.740   1.00000   &lt;== 除权日，比值跳到 1
+2026-07-20     26.720     26.720   1.00000</code></pre>
+<p data-page-node-id="WD1gtgoIrBWKv4sl3qEOaq">除权日之前整体缩放、之后完全不变，这是<b data-page-node-id="s2GqRzlPFEQTT0DvA6wzmd">前复权</b>的唯一特征。同时排除了其它可能：</p>
+<ul data-page-node-id="HRJ0qGLEDyh4rG6Ea4o8KT">
+  <li data-page-node-id="eg1S5jODKOr4YrnMo8oHT5">新浪：在 <code data-page-node-id="NFyBCXm5HlGThSxChwdMK5">datalen</code> = 60 / 120 / 207 / 250 / 300 下，2026-07-06 恒为 <b data-page-node-id="hlzuOA0izcfZCpPx44ug52">26.980</b>，且解析器原样取 <code data-page-node-id="Ho3PjJalOruFo6eCmX8QZR">close</code>（不计算）</li>
+  <li data-page-node-id="2bo0yHiUi3mYAr4EUzmdw9">腾讯：项目真实 URL 现在 501，WAF 拦截页</li>
+  <li data-page-node-id="rTvSsJVUfZKcUZmLICu9EO">日期错位：比值恒定而成交额一一对应，不是错位</li>
+</ul>
+
+<h2 data-page-node-id="DDPskTrH4JSh6BVTo4ZLBM">§2 影响面：这不是刷新任务独有的缺陷</h2>
+
+<div class="card warn" data-page-node-id="N1092UBiNJlrM3OHa4tyPI">
+  <p style="margin-bottom:6px" data-page-node-id="M5EJfTQev1kQBT2hmzDY6h"><span class="k" data-page-node-id="ZABo9wEeD1xkoE2MjtaJUB">关键判断</span></p>
+  <p style="margin-bottom:0" data-page-node-id="DhFDUgqFT0bp6jaCwlHjcX"><code data-page-node-id="KCprWIVYOqqzoZrFapBQmv">fetch_kline_with_status</code> 对<b data-page-node-id="OtkiEKbo1ICm2eAdzGKJKR">每一只股票</b>独立做「主源 → 兜底源」判定，熔断状态是共享的，但判定粒度是单只。批次是 5000+ 只股票的并发流。所以只要主源在批次开始时可用、中途被掐，<b data-page-node-id="pzP6b9Tpq9O2FCDvmkbU7M">翻转点之前是前复权、之后是不复权</b>——两套价格口径进同一份等权聚合，且完全静默，没有任何告警。</p>
+</div>
+
+<table data-page-node-id="juaj2BJRkNJUTD3qowBc5y">
+  <tr data-page-node-id="3bBGanzcGBcw1PFqA0tXHQ"><th data-page-node-id="kYeNd1RE9ONfQ6fwyQq5bg">路径</th><th data-page-node-id="MBm78SRoL2hyjYpDYlhplK">批次规模</th><th data-page-node-id="BhszHL0b8ySsCDUULGCJvN">并发</th><th data-page-node-id="WA9nMRhBG8xtA12uyp5bAc">翻转风险</th></tr>
+  <tr data-page-node-id="z3CGnhX8BErZO0v1czwbuJ"><td data-page-node-id="1g55AskW45CevLqiIUBsLm">滚动刷新（新）</td><td data-page-node-id="iFgUknkZAzyNTvAAIoklnk">805 只/天</td><td data-page-node-id="XUy4WzYlUbaA9LmdvBD2Uf">48</td><td class="no" data-page-node-id="kgTssFwPKIB20HryOveWnm">有</td></tr>
+  <tr data-page-node-id="agn7sP1FhbXVA3uowRTrHs"><td data-page-node-id="ITwP3rbCpO4CFUZGmX9VbH">日报补齐 <code data-page-node-id="Dyhgxpp4uD5TslMNtz7c00">load_or_fetch_bars</code></td><td data-page-node-id="pvGP9lrFW1TWVoZ7ruYddE">冷启动 5642 只</td><td data-page-node-id="blFjHizCxBwDizXSwmkOEb">48</td><td class="no" data-page-node-id="CEMYtCJJjzipdUPk6P1JD1">有（且是主要路径）</td></tr>
+  <tr data-page-node-id="c6O9gpNcVOwHguMmLmeBUI"><td data-page-node-id="MN87AG5Pxa7m1zrl84dNDh">超窗口回退</td><td data-page-node-id="MKhpwrEnXCOrOvEBS7A9cA">5515 只</td><td data-page-node-id="RogFuD4rWX3K1oIHZUT6Xg">48</td><td class="no" data-page-node-id="nMnutFR2ac7IHoQVYphRX6">有</td></tr>
+</table>
+
+<p data-page-node-id="GJTWdeNiJtkGETsbq8QYR7">换句话说：<b data-page-node-id="mH46GVHm66ShP7Dwikrvdj">这个缺陷在序列缓存和滚动刷新之前就存在</b>，只是此前腾讯长期处于熔断态、整批都走新浪，所以从未被触发——演练恰好撞上腾讯短暂可用的窗口，才让它现形。</p>
+
+<h2 data-page-node-id="LkdwDBCiPFDPaF2iJVf4C8">§3 哪个口径才是对的：前复权</h2>
+
+<p data-page-node-id="HO35Xiu0vr6WmSrDucljub">被刷新的 805 只同时留有两套数据（备份里是不复权、刷新后是前复权），正好构成天然对照：</p>
+
+<table data-page-node-id="8DfqNdHg1ACFRBqMa2pdhm">
+  <tr data-page-node-id="74eMO2kx5yonrhZENNwPqd"><th data-page-node-id="0JBqfJMXl5FCtAxsW6oaXl">指标</th><th data-page-node-id="ph6nZXOpGFllXxSIn2a849">数值</th><th data-page-node-id="3phaaJz04DFcsEaPaBnpLf">含义</th></tr>
+  <tr data-page-node-id="nyyXzjF9ganiZ78AkN3VzY"><td data-page-node-id="SUCHJFkEd46AJyRTZm6S25">不复权下 |涨跌幅| &gt; 11%（正常 A 股不可能），前复权下正常</td><td class="no" data-page-node-id="JPvS5BlefYAqhCxteAt2sP"><b data-page-node-id="eoveU3AQXSDbpOhaziyL2b">35 行 / 35 只</b></td><td data-page-node-id="06i1Gxj9Chq2w2J8NzEDGJ">不复权在除权日造出荒谬涨跌幅</td></tr>
+  <tr data-page-node-id="9KVha6VgfQhXGHq4NAuCJt"><td data-page-node-id="HMNHQJBHQuTuMYJbNdxEz8">反向（前复权反而异常）</td><td class="yes" data-page-node-id="d6kwejQ94SKXzUZ7VxovHt"><b data-page-node-id="oBzR1Qf1DxgWGFpjj4NRMq">0 行</b></td><td data-page-node-id="hTgmzuyH00VvTvYN4EzOJl">前复权没有引入任何异常</td></tr>
+  <tr data-page-node-id="gtH3RaoDmaY595GlqdwFVV"><td data-page-node-id="rNEAWF508WEPnzXo2YCpbO">pct_change 有差异的行</td><td data-page-node-id="mBzdAIWVD1qqe9EZwsZU4f">61,266 / 144,727（42.3%）</td><td data-page-node-id="ZdOpx6f2ryCkorSFzmbNlR">其中 <b data-page-node-id="tYeZS86BYqTa3kpWUD1b8H">94.8% 小于 0.1pp</b>，是缩放后的舍入噪声，不影响分桶</td></tr>
+  <tr data-page-node-id="BKxBPEydDkJx9C8B2KsicY"><td data-page-node-id="jMdqoqx6PE9Y12KLyNdos9">差异 &gt; 1pp 的行</td><td data-page-node-id="CQBLtkLWU5cJ69FEx6cmcU">308 行</td><td data-page-node-id="SHBh0A3wJ9wx6OIEQpqLTn">真正会被错分到相邻涨跌区间的部分</td></tr>
+</table>
+
+<div class="card" data-page-node-id="PmhaXYyv4XMFyoi7nDVRXd">
+  <p style="margin-bottom:0" data-page-node-id="Z8hIhtvbWU9AGLgtQI0Fgd"><span class="k" data-page-node-id="idAAZ5EnSDbDMEQsUEYFq4">外推到全市场</span>：平均每份日报约 <b data-page-node-id="K7SPUpET87FrcyVAMuIIDn">8–12 家</b>的涨跌幅度被扭曲 1pp 以上，其中约 <b data-page-node-id="noZPK1wg83cpBBN5hb6qKA">1 家</b>会出现 &gt;11% 的荒谬值；5–7 月除权季高峰可达 <b data-page-node-id="1t4OLrSMqnhoTQ3l7LdKAG">7–8 家/日</b>。占全市场 0.2% 左右——不是灾难，但是一个<b data-page-node-id="2yPTkuWHmbJQkz1ACDdhTs">静默的错误数字</b>，且方向与大小都无法预测。</p>
+</div>
+
+<h2>§4 附带发现：刷新窗口会无界蠕变 <span class="tag">已修复</span></h2>
+
+<p data-page-node-id="1HDZpZeCoG67lS1EUvNnHD">刷新窗口取的是 <code data-page-node-id="Pj01Efnc8FqKT1Ize7m43B">max(SERIES_WINDOW_BARS, bars_needed_for(first_date))</code>，本意是「刷新不能缩短已有覆盖」。但 <code data-page-node-id="apIroyOh9hGwHzxLhnQ95k">bars_needed_for</code> 是<b data-page-node-id="UZdduUKYtJxZ8LFg5uJdbD">自然日 × 5/7 + 15</b> 的估算，用在「已有序列起点」上必然高估：</p>
+<pre data-page-node-id="O29we4Ae3Mqi9GotFerBrM"><code data-page-node-id="eRjbnTlJMrNDgWosjvaC9d">first_date = 2025-10-31，距今天 308 自然日
+  → bars_needed_for = ceil(308 × 5/7) + 15 = 235 根
+  → 请求 235 根 → 序列起点被推到更早 → 下一轮再估更大 → ...</code></pre>
+<p data-page-node-id="3yEBMEM6OMKrf78NlhFH8C">实测<b>一轮就多出 21,574 行</b>（805 只，约 27 行/只）。按 7 天一轮、一年 52 轮，序列会无界增长，数据库随之一路膨胀。</p>
+
+<h3>不能简单地把窗口固定成 120 根</h3>
+<p>固定窗口会让请求覆盖不到「现有序列起点」，而抓取层当时用 <code>end=Some(first_date)</code> 校验覆盖——覆盖不到就回落兜底源。实测下来这个组合是灾难性的：</p>
+
+<table>
+  <tr><th>每只股票的行数</th><th>只数</th><th>固定 120 根能否覆盖到现有起点</th></tr>
+  <tr><td>181 ~ 240 行</td><td><b>5,215</b></td><td class="no">否 → 每只都白白回落兜底源</td></tr>
+  <tr><td>121 ~ 180 行</td><td>330</td><td class="no">否</td></tr>
+  <tr><td>≤ 120 行</td><td>88</td><td class="yes">是</td></tr>
+</table>
+
+<p>也就是 <b>5,545 / 5,633 只都会触发回落</b>：请求翻倍，而且永远拿不到主源——刷新本该刷新前复权数据，结果全走不复权，等于白跑。</p>
+
+<h3>采用的修法：保住覆盖的责任从「请求侧」移到「落库侧」</h3>
+<div class="card hl">
+  <ul style="margin-bottom:0">
+    <li>请求窗口<b>固定</b>为 <code>SERIES_WINDOW_BARS</code>（120 根），不再用估算函数放大</li>
+    <li>刷新路径不再传 <code>end</code>（传了必然覆盖不到，见上表）</li>
+    <li>落库时 <code>first_date = min(本次抓到的首日, 库里已有的首日)</code></li>
+  </ul>
+</div>
+<p>第三条是关键：落库是 <code>ON CONFLICT DO UPDATE</code>，<b>老行不会被删</b>，所以库里的实际覆盖只增不减。取 min 之后声明的起点与库内实际一致——既不蠕变（请求固定），也不缩水（老行还在）。</p>
+
+<div class="card">
+  <p style="margin-bottom:0"><span class="k">顺带澄清</span>：若每只只保留最近 120 根，会掉 336,915 行（33.4%），但 distinct 日期只从 251 降到 249。取 min 之后<b>这些行一根都不会少</b>，只是它们不再被刷新——这是可接受的代价，那一层由 7 天一轮的滚动刷新覆盖。</p>
+</div>
+
+<div class="card warn">
+  <p style="margin-bottom:0"><span class="k">已加的观测</span>：刷新批次前后各读一次主源状态，若发生翻转则打 <code>WARN</code> 日志。这只是<b>让混用变成看得见的事件</b>，还不具备「翻转就整批作废」的能力——那需要抓取层把「这一只实际用了哪个源」报上来，正是方案 A1 要做的事。</p>
+</div>
+
+<h2 data-page-node-id="jqm0APfHJ91M2u51s7pwR3">§5 已做的处置（不等方案，先把现场收拾干净）</h2>
+
+<table data-page-node-id="mUhzsUCn2JsyO61YRVVrbL">
+  <tr data-page-node-id="FFn14g2BdhjiXAG4vJPHAF"><th data-page-node-id="aFuVKq7gF9hHXB9UNJKBSB">项</th><th data-page-node-id="18Xt4bUZyhaYrIApKiZUrr">动作</th><th data-page-node-id="SXOBwjTi9UBVHpR9gmRrKr">结果</th></tr>
+  <tr data-page-node-id="zsLga45xinAyPfq7YAvphG"><td data-page-node-id="KKwAMpvn3UST4lN3etYJ8T">数据库</td><td data-page-node-id="Qf5D6YjUcozntEMIrFKkjR">从演练前备份还原（混用态另存 <code data-page-node-id="q2V38il37tZSlkMBELaTzn">/tmp/stock.db.mixed-115550</code>）</td><td class="yes" data-page-node-id="DsqKHLbvCVYhxWt2LebRvz">与基准 0 差异；1,007,852 行、5633 条 meta 完全一致</td></tr>
+  <tr data-page-node-id="Ohz969kQDpWTGtyI0XORDs"><td data-page-node-id="rG6ReeHjYtGmJ7diMQozvZ">口径一致性</td><td data-page-node-id="pBepRRigyfLb5m31wLeqau">抽样 25 只与新浪逐行比对</td><td class="yes" data-page-node-id="BZHZwVt5WgpyR3iSzAYmLC">25/25 完全一致，全库统一为不复权</td></tr>
+  <tr data-page-node-id="GW1sCzKA3pcnvmB4Www1NR"><td data-page-node-id="n4vYJRswAltHHEOaKORDEM">代码</td><td data-page-node-id="qMXl5PGZfiW4LDxGrytOX1">摘除演练开关 <code data-page-node-id="BJBwD60KFat1QxnMgAIh6C">DRILL_FORCE_REFRESH</code> / <code data-page-node-id="tOcfK3XVjDySsvtH77XwOa">DRILL_NO_SKIP_CATCHUP</code></td><td class="yes" data-page-node-id="ukEeUjLtcel3nxGlwBfOJw">编译 0 警告，130 测试全过（+2 条覆盖 <code>first_date</code> 取 min 的不变量）</td></tr>
+  <tr><td>问题 B</td><td>固定刷新窗口 + 落库取 <code>min(新, 旧)</code> + 批次翻转告警</td><td class="yes">已落地，见 §4</td></tr>
+  <tr data-page-node-id="nMl40laBGCz9NPbfD5Wt5A"><td data-page-node-id="FLEYJVtntLe9Ifmz0XovpZ">刷新任务</td><td data-page-node-id="6Ei9XP2DHxHfhbGip6IHMC">保留注册，仍由 <code data-page-node-id="BgY0QQVgOY4t2G82xm2m5T">primary_source_tripped()</code> 闸门保护</td><td class="dim" data-page-node-id="ynJpB7GUtKH52XctFBfH47">腾讯当前熔断 → 会 skip，<b data-page-node-id="Sm4o6hNsmjzP5Nl1ShIejL">但恢复后即暴露</b></td></tr>
+</table>
+
+<h2 data-page-node-id="syzHfgED5QfbNu8Jxbp3o4">§6 方案选项</h2>
+
+<h3 data-page-node-id="uZLA3MW1EBXpoO9iR63HHE">问题 A · 批次内口径混用</h3>
+<table data-page-node-id="rRfVbyMVVScxztff6lmEOG">
+  <tr data-page-node-id="l9NxyncChoEdxDAKZgkaB2"><th data-page-node-id="O9Cr8wTXYU6Cs228LoRnNh">方案</th><th data-page-node-id="nOHJOSqEiiU7320VPNrJED">做法</th><th data-page-node-id="H2BrlCq2F3khw7cae35TBW">代价 / 风险</th></tr>
+  <tr data-page-node-id="c956VZNHDOmsq58vWrKxzb">
+    <td data-page-node-id="Ofs01N6hP4BvwV5sA4eGfM"><b data-page-node-id="3UKSrnkjSpmRh0iYBnqgCl">A1 批次级口径锁</b><br data-page-node-id="EEWlerDjgph6mREimSFOZr"><span class="dim" data-page-node-id="Ylv7W9aOejMVuUfpDyZQ6v">推荐</span></td>
+    <td data-page-node-id="dzEClZ4z9Mkly3ZJXNWcFR">批次开始时抽样 20 只探测主源，<b data-page-node-id="QuLmAxTDjcs4ztF04QSuZG">锁定</b>一个源，整批只用该源；单只失败记为「该股失败」，<b data-page-node-id="8kHM95PrLRy8zgB0WHzTDm">绝不静默换源</b>。若批次失败率超阈值（如 5%），整批作废并以兜底源重跑。</td>
+    <td data-page-node-id="Gaf9sOP5qv8WPUhljKCbOX">主源中途挂掉时该批要重跑（约 2× 耗时）；换来批次内口径严格一致，且失败可见而非静默。</td>
+  </tr>
+  <tr data-page-node-id="btQjVyy4ohasga99OP6B2z">
+    <td data-page-node-id="wGLGhvTatzzrjhmAKBwNhe">A2 只用不复权</td>
+    <td data-page-node-id="OjfqWI7x1xIahQe1EW6LDf">移除腾讯日线主源，全线走新浪。</td>
+    <td data-page-node-id="6TEmUElGxMnfg3mfJr0Z5q">实现最简单、永不混用；但除权日假涨跌永久存在（8–12 家/日），且放弃前复权这个更正确的口径。</td>
+  </tr>
+  <tr data-page-node-id="kGlios2GbA5Lj7PpmEWfqc">
+    <td data-page-node-id="qfEQQ3izNssrBF92QodfuJ">A3 逐行记录口径</td>
+    <td data-page-node-id="thcZHjWmtEFvWQ6iHaErSC"><code data-page-node-id="sGM52ip1A4v6Kq6eOJ5fLv">daily_bar_cache</code> 加 <code data-page-node-id="Hxo3up9I78Pavm6dWQlIqp">source</code> 列，聚合前检测混用并告警/剔除。</td>
+    <td data-page-node-id="z1UUyJ9CIiqZFfcMwJSVPw">最彻底、可观测；改动面最大（表结构 + 迁移 + 聚合逻辑）。可与 A1 叠加，先只做记录与告警。</td>
+  </tr>
+</table>
+
+<h3>问题 B · 刷新窗口蠕变 <span class="tag">已落地</span></h3>
+<div class="card hl">
+  <p style="margin-bottom:0">已按 §4 的修法实现：请求窗口固定 120 根、刷新路径不传 <code>end</code>、落库 <code>first_date</code> 取 <code>min(新抓首日, 库里已有首日)</code>；并新增 <code>WARN</code> 日志观测批次内主源翻转。</p>
+</div>
+<div class="card hl" data-page-node-id="gdsFyDGYUoQIt3QV0h9cnF">
+  <p style="margin-bottom:0" data-page-node-id="t1XRttc5ICarZiYDIUGFOV">固定用 <code data-page-node-id="1ujowCltzKsKx20jIXgnfb">SERIES_WINDOW_BARS</code>（120 根），<code data-page-node-id="gEqZh0nX3uPihboWTqyhR6">meta.first_date</code> 取 <code data-page-node-id="ijGscUyFgOPpDpyETRWwrv">min(新抓首日, 库里已有首日)</code>。<br data-page-node-id="Nahu6A5QWgOLmRMdHVyJ9x">
+  既不蠕变也不缩水——因为落库是 <code data-page-node-id="b7sbB45LEfGDgBWA1YgbE7">ON CONFLICT DO UPDATE</code>，老行不会被删；而 <code data-page-node-id="1n4iABJ1aIcrAsxAO9kFeL">oldest_series()</code> 已经把现有 <code data-page-node-id="ThFEG7U7iqWg7kpdghouvi">first_date</code> 带出来了，改动很小。</p>
+</div>
+
+<h3 data-page-node-id="srABAfRjHdm12a2XxKc7ED">建议的落地顺序</h3>
+<ol data-page-node-id="epmccloCxhof52oGDnAgWB">
+  <li data-page-node-id="NahwxkJPf9SfQP7vBdgHmg"><b data-page-node-id="iAG0sLvmfGk9GsITUJKs9w">立即</b>（一行）：把刷新任务从 <code data-page-node-id="sDTbwopxZSTtQWAfyX6FOC">app.rs</code> 反注册。它每天都主动制造一次 805 只的批量请求，是触发翻转最频繁的路径；闸门只在腾讯已熔断时生效，恰好保护不了「批次中途翻转」这种情况。</li>
+  <li><b>问题 B</b>：已完成（固定窗口 + 落库取 min）。</li>
+  <li><b>问题 A1</b>：批次级口径锁 + 失败率阈值重跑。<b>仍未开始</b>，且需要改动用户 facing 的日报抓取链路，等你确认。</li>
+  <li data-page-node-id="5ETQZ6GFHXXL8Ck5APGnTj"><b data-page-node-id="myYQkyup6CV0eGgdBsnM6q">问题 A3</b>（可选）：加 <code data-page-node-id="RQBxabY1EMYMy3GyYk8UZV">source</code> 列做可观测性，验证 A1 是否真的消除了混用。</li>
+</ol>
+
+<h2>§8 新证据：根因不是「主源不稳定」，是我们把自己打封了</h2>
+
+<div class="card bad">
+  <p style="margin-bottom:0"><span class="k">一句话</span>：腾讯返回 501 不是它不稳定，是 <b>WAF 按请求量封了我们的 IP</b>。应用为了补齐历史日期，09-04 在 13.6 分钟内打了 <b>28,158 次</b>行情请求（4 次满盘 5,642 只 + 1 次 5,554 只）。封禁持续 10 分钟以上，期间全部回落新浪（不复权）；解封后又切回腾讯（前复权）——<b>所谓「主源翻转」，本质是我们自己制造的</b>。</p>
+</div>
+
+<h3>8.1 换子域不是解药（我一度以为找到了，实测推翻）</h3>
+<p>补测中发现同一个 <code>/appstock/app/fqkline/get</code> 端点，<code>ifzq.gtimg.cn</code>（项目分钟K线已在用）在 <code>web.ifzq.gtimg.cn</code> 已被封时仍返回 200，且<b>数据逐日一致</b>（000001 的 09-02/09-03/09-04 收盘 11.910 / 11.880 / 11.90 完全吻合，响应结构同为 <code>code=0</code> + <code>qfqday</code>）。我一度以为这是「一行改动的修复」，<b>持续验证推翻了它</b>：</p>
+<pre><code>ifzq.gtimg.cn 持续验证（每 20s 一批 30 次，共 30 轮 / 9.8 分钟）
+  第  1–6 轮  12:34:52–12:36:34   30/30  ← 前 6 轮正常
+  第  7  轮   12:36:55            10/30  ← 开始掉
+  第 8–30 轮  12:37:15–12:44:42    0/30  ← 连续 24 轮全挂，始终未恢复
+
+对照（12:38:33 同一时刻三源同测）
+  新浪 sina      http=200   ← 正常
+  腾讯 web.ifzq  http=501
+  腾讯 ifzq      http=501   ← 也封了</code></pre>
+<p><b>结论：两个子域最终都会被封，且是腾讯域 + IP 维度的，与子域无关。</b>换主机名只能推迟，不能避免。此前提议的「P0 换主机名」已撤回。</p>
+
+<h3>8.2 封禁与瞬时速率无关，与累计量有关</h3>
+<table>
+  <tr><th>观测</th><th>速率</th><th>结果</th></tr>
+  <tr><td><code>web.ifzq</code> 慢速探测 12:22–12:29</td><td>0.1 次/秒</td><td>先 21/21 成功，<b>12:29:15 速率未变却翻转</b>，之后 9/9 全 501</td></tr>
+  <tr><td><code>web.ifzq</code> 恢复探测 12:31–12:39</td><td>0.07 次/秒</td><td>32/32 全部 501，<b>8 分钟未恢复</b></td></tr>
+  <tr><td><code>ifzq</code> 突发 12:33（700 次 / 并发 48）</td><td><b>178 次/秒</b></td><td class="yes">0 失败</td></tr>
+  <tr><td><code>ifzq</code> 慢滴 12:34–12:37（180 次）</td><td>1.8 次/秒</td><td>6 轮正常后<b>被封</b></td></tr>
+</table>
+<p>178 次/秒的突发全过、1.8 次/秒的慢滴却被封 —— 这个反常组合指向<b>按时间窗口累计请求数封禁</b>，而不是按瞬时速率限流。我在 §8.1 之前曾据此推测「并发把主源打挂了」，也被上面的时间线推翻，一并更正。</p>
+
+<h3>8.3 应用自己的请求量才是元凶</h3>
+<p>从 <code>logs/stock-buddy.log.2026-09-04</code> 逐条统计 <code>to_fetch</code>（本批实际请求行情源的股票数）：</p>
+<pre><code>本地时间    目标日         to_fetch
+10:59:32   2026-08-26     5642   ← 满盘
+11:06:04   2026-08-25        9   ← 缓存命中
+11:06:05   2026-07-15        9   ← 缓存命中
+11:06:48   2026-08-24     5642   ← 满盘
+11:07:06   2026-08-21        9
+11:08:37   2026-08-27     5642   ← 满盘
+11:09:15   2026-06-30     5642   ← 满盘
+11:12:12   2026-01-15     5554   ← 满盘
+11:13:08   2026-09-04        9
+─────────────────────────────────────
+合计 28,158 只次 / 816 秒（13.6 分钟）</code></pre>
+<p>缓存命中时只要 9 只，<b>未命中就是要满盘 5,642 只</b>。而自动归档开了 <code>catchup_days=3</code>，一天要处理好几个日期，于是短短十几分钟就打出近三万次请求。</p>
+
+<h3>8.4 为什么缓存会整片失效</h3>
+<p><code>resolve_from_series</code>（<code>sentiment.rs:752</code>）有一条硬判定：</p>
+<pre><code>if m.fetched_at != today {
+    return None;          // 不是本地今天抓的 → 一律重抓
+}</code></pre>
+<p>这条是当初为解决「前复权会随新的除权事件变化」（方案 A）引入的。副作用是：<b>每跨一天，全市场 5,633 只集体失效</b>，第一次报告必然满盘重抓。滚动刷新任务每天只刷 805 只（7 天一轮），跟不上「每天整体失效一次」的节奏。</p>
+<p class="dim">补充实测：库里 <code>complete=0</code> 的有 5,513 只（97.9%），即绝大多数序列都被请求窗口截断；序列起点集中在 2025-12（5,442 只）。请求更早的历史日期时窗口还要再放大（<code>bars_needed_for</code>），单批写入从 665,351 行涨到 997,077 行。</p>
+
+<h3>8.5 北交所是硬缺口（与方案无关，先摆出来）</h3>
+<table>
+  <tr><th>板块</th><th>腾讯</th><th>新浪</th><th>结论</th></tr>
+  <tr><td>沪主板 600/601/603、科创 688</td><td class="yes">121 根</td><td class="yes">有</td><td>两源均可</td></tr>
+  <tr><td>深主板 000/002、创业 300/301</td><td class="yes">121 根</td><td class="yes">有</td><td>两源均可</td></tr>
+  <tr><td>B 股 900</td><td class="yes">121 根</td><td class="yes">有</td><td>两源均可</td></tr>
+  <tr><td><b>北交所 920</b>（339 只 / 6.0%）</td><td class="no">仅 1 根</td><td class="yes">有</td><td><b>腾讯无历史，只能走新浪</b></td></tr>
+</table>
+<p>920 段在腾讯侧<b>只有当日快照</b>：<code>limit</code> 传 10 还是 120、加不加 <code>qfq</code>，一律只返回 1 根。数据库里北交所 339 只的 55,489 行<b>全部来自新浪</b>。这 6% 无论选哪个方案都<b>注定不复权</b>，混用无法靠选源消除，只能显式标注。</p>
+
+<h3>8.6 A2（只用不复权）的代价 —— 否决依据</h3>
+<p>对数据库里随机抽的 67 只标的，各取「前复权 / 不复权」两套 120 根日线比较：</p>
+<div class="grid3">
+  <div class="stat"><div class="v">59.7%</div><div class="l">窗口内发生过除权</div></div>
+  <div class="stat"><div class="v">12.0%</div><div class="l">存在 &gt;3% 假跳空</div></div>
+  <div class="stat"><div class="v">7.5%</div><div class="l">假跳空 &gt;10%</div></div>
+</div>
+<p>最严重的 <code>688583</code> 单日假跳空 <b>28.31%</b>。注意一个结构性事实：前复权只是把除权日之前的价格整体乘一个常数，所以<b>「单日涨跌幅」两种口径只在除权日当天不同</b>。这就是为什么情绪报告（聚合涨跌幅）受影响很轻，而 K线图与回测（用价格绝对水平）受影响很重。</p>
+
+<h3>8.7 当前库的口径是干净的</h3>
+<p>按各板块涨跌幅限制扫描全部 1,007,852 行，超出涨停的「不可能暴涨」6 次，逐只核查后<b>全部是上市前 5 日无涨跌幅限制的新股</b>（如 <code>688795</code> 首日 628→735→941）。<b>当前库统一为不复权，混用尚未发生。</b></p>
+
+<h3>8.8 A1 修不了的那部分</h3>
+<div class="card warn">
+  <p><code>sentiment.rs:795</code> 先读 <code>daily_bar_cache</code> 里该日期的已有行，再抓缺失的。缓存是 <code>ON CONFLICT DO UPDATE</code>，<b>最后写入的批次赢</b>；每个批次都会写入整个 120 根窗口，所以<b>某日期的行可能由跨度约半年的任意批次写成</b>，各批次口径可能不同。</p>
+  <p style="margin-bottom:0">A1 只能锁定「本次新抓的这一批」，<b>管不了从缓存读出来的那一半</b>。这是原方案把 A1 列为推荐时的一个盲点。</p>
+</div>
+
+<h2>§9 修订后的建议：按场景分流（新方案 X）</h2>
+
+<div class="card hl">
+  <p><span class="k">核心洞察</span>：既然批量请求必然被封，那就<b>别用腾讯做批量</b>。而两种口径的适用场景本来就不同 ——</p>
+  <ul style="margin-bottom:8px">
+    <li><b>看价格绝对水平</b>（KDJ、布林带、K线图、做T回测）→ <b>必须前复权</b>，否则除权日之前整段都是错的</li>
+    <li><b>看单日涨跌幅</b>（情绪日报的聚合统计）→ 不复权<b>只在除权日当天</b>有差异，其余日子完全一致</li>
+  </ul>
+  <p style="margin-bottom:0">按场景分流，<b>每个视图内部口径自洽，天然不混用</b>，且各取所需。</p>
+</div>
+
+<table>
+  <tr><th>路径</th><th>请求量</th><th>改用</th><th>理由</th></tr>
+  <tr>
+    <td><b>情绪日报 / 归档</b><br><span class="dim">5,642 只批量</span></td>
+    <td class="no">5,642/批</td>
+    <td><b>只用新浪</b></td>
+    <td>腾讯在这个量级必然被封，现在也是被封后回落新浪 —— 不如省掉那几千次注定失败的请求。聚合涨跌幅受不复权影响极小</td>
+  </tr>
+  <tr>
+    <td><b>K 线图</b> <code>/api/v1/kline</code><br><span class="dim">单只，交互式</span></td>
+    <td class="yes">1</td>
+    <td><b>腾讯前复权</b></td>
+    <td>单次请求量极小，不会触发 WAF；指标需要正确的价格水平</td>
+  </tr>
+  <tr>
+    <td><b>做T回测</b><br><span class="dim">单只</span></td>
+    <td class="yes">1</td>
+    <td><b>腾讯前复权</b></td>
+    <td>同上，且回测结果因此可复现</td>
+  </tr>
+  <tr>
+    <td><b>滚动刷新任务</b></td>
+    <td>805/天</td>
+    <td class="dim">重新评估</td>
+    <td>它的存在理由是「保持前复权不过期」。报告改用不复权后，前复权不再进缓存，这个任务的必要性需要重新判断</td>
+  </tr>
+</table>
+
+<div class="card hl">
+  <p style="margin-bottom:6px"><span class="k">前提已核验</span>：新浪扛得住 5,642 只的批量。09-04 走兜底源的三个批次，各落库 665,351 行 ≈ <b>118 根/只</b>，对 120 根窗口是 <b>98% 成功率</b>；另一批窗口 181 根、落库 177 根/只，同样 98%。<span class="dim">（11:39 的 166,301 行是滚动刷新的 805 只，非失败。）</span></p>
+  <p style="margin-bottom:0">也就是说，批量路径改用新浪在<b>吞吐上完全可行</b>，这不是拿可靠性换一致性。</p>
+</div>
+
+<h3>方案 X 的收益与代价</h3>
+<table>
+  <tr><th>项</th><th>现状</th><th>方案 X 之后</th></tr>
+  <tr><td>每日请求量</td><td class="no">~28,000（且自伤）</td><td class="yes">~5,642（全部打新浪）</td></tr>
+  <tr><td>主源翻转</td><td class="no">频繁（被封↔解封）</td><td class="yes">批量路径不再有翻转</td></tr>
+  <tr><td>报告口径</td><td>前复权/不复权随机</td><td class="yes">恒定不复权</td></tr>
+  <tr><td>K线/回测口径</td><td class="no">随机（同股两次打开可差 28%）</td><td class="yes">恒定前复权</td></tr>
+  <tr><td>KDJ/布林带</td><td class="no">除权日污染</td><td class="yes">正确</td></tr>
+  <tr><td>北交所 339 只</td><td>不复权</td><td class="dim">K线仍只能不复权（腾讯无历史），需标注</td></tr>
+</table>
+
+<div class="card warn">
+  <p style="margin-bottom:0"><b>待验证的风险</b>：交互路径（单只、低频）会不会累积后被封？慢速探测在 0.1 次/秒下 7 分钟仍会翻转，但那次翻转大概率是当天早前大量请求累积的结果，<b>不能据此断定低频使用安全</b>。建议方案落地后观察 K 线路径的 501 率再定；若确实也会被封，则需要考虑本地缓存序列（把抓过的前复权序列存下来，减少重复请求）。</p>
+</div>
+
+<h3>与既有方案的对比</h3>
+<table>
+  <tr><th>方案</th><th>处置</th><th>说明</th></tr>
+  <tr><td><b class="k">X 按场景分流</b></td><td class="yes">建议采纳</td><td>本报告新增。改动集中在「批量路径不走主源」与「单只路径优先主源」两处判定</td></tr>
+  <tr><td>A1 批次级口径锁</td><td class="dim">暂缓</td><td>方案 X 落地后批量路径不再换源，A1 要防的翻转已不存在；且它修不了 §8.8 的缓存拼接</td></tr>
+  <tr><td>A2 只用不复权</td><td class="no">否决</td><td>12% 的股票会有 &gt;3% 假跳空、7.5% &gt;10%，KDJ/布林带不可用</td></tr>
+  <tr><td>A3 逐行记 source</td><td class="dim">降为可选</td><td>方案 X 之后各视图本就口径自洽，source 列退化成纯观测。建议先看一段时间再决定</td></tr>
+</table>
+
+<h2>§7 需要你拍板</h2>
+<ol>
+  <li><b>是否采纳方案 X（按场景分流）？</b> 这是我基于今天全部实测给出的新建议，它同时解决了「口径混用」和「把自己打封」两个问题，且改动比 A1 小。</li>
+  <li><b>这是对你上次决策（方案 A：加 <code>kline_series_meta</code> + 滚动刷新）的部分回退</b> —— 报告改用不复权后，前复权不再进缓存，序列元数据和 7 天滚动刷新的存在理由会被削弱。你倾向：(a) 顺势简化，移除滚动刷新；(b) 保留，改用于维护 K 线的序列缓存。</li>
+  <li><b>北交所 339 只（6.0%）怎么办？</b> (a) K 线上标注「该标的不支持前复权」；(b) 维持静默；(c) 从相关统计中排除。</li>
+</ol>
+
+<div class="foot">
+  证据文件：慢速探测 <code>/tmp/tencent_probe.csv</code>、恢复探测 <code>/tmp/recovery.csv</code>、加压测试 <code>/tmp/burst_test.py</code>、
+  ifzq 验证 <code>/tmp/verify_ifzq.py</code>、ifzq 持续验证 <code>/tmp/ifzq_sustain.py</code>、A2 代价测量 <code>/tmp/measure_a2_cost.py</code>、
+  演练日志 <code>/tmp/refresh-drill2.log</code>、干净基准 <code>/tmp/stock.db.bak-before-refresh-113247</code>。
+</div>
+
+</div>
+</body>
+</html>

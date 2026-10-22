@@ -236,33 +236,3 @@ pub fn chat_prompt(
         ChatMessage::user(user),
     ]
 }
-
-/// 构建自选股批量诊断 Prompt
-pub fn batch_diagnosis_prompt(
-    stocks_json: &str,
-    market_json: &str,
-) -> Vec<ChatMessage> {
-    let user_content = format!(
-        r#"请对以下自选股进行批量快速诊断。
-
-## 自选股数据
-{stocks_json}
-
-## 市场环境
-{market_json}
-
-## 请为每只股票输出（Markdown表格格式）：
-
-| 股票 | 最新价 | 涨跌幅 | 综合评分 | 趋势方向 | 风险等级 | 操作建议 | 关键提示 |
-
-然后在表格下方，对每只股票给出一句话点评和需要关注的关键信号。
-
-最后给出自选股组合整体配置建议。{output_format}"#
-        , output_format = OUTPUT_FORMAT
-    );
-
-    vec![
-        ChatMessage::system(SYSTEM_ROLE),
-        ChatMessage::user(user_content),
-    ]
-}

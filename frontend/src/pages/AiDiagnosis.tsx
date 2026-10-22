@@ -1,21 +1,35 @@
 import { useState, useRef, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import MarkdownView from '../components/MarkdownView';
 import { api } from '../api';
+import { usePersistedState } from '../stores/persistedState';
 
 type AnalysisType = 'diagnose' | 'predict';
 
 export default function AiDiagnosis() {
-  const [code, setCode] = useState('');
+  const [searchParams] = useSearchParams();
+  const [code, setCode] = usePersistedState('ai.diagnosis.code', '');
   const [content, setContent] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [aiConfigured, setAiConfigured] = useState(true);
-  const [activeTab, setActiveTab] = useState<AnalysisType>('diagnose');
+  const [activeTab, setActiveTab] = usePersistedState<AnalysisType>('ai.diagnosis.tab', 'diagnose');
   const scrollRef = useRef<HTMLDivElement>(null);
+  const autoRunRef = useRef(false);
 
   useEffect(() => {
     api.getAiStatus().then(s => setAiConfigured(s.configured)).catch(() => {});
   }, []);
+
+  // 从 URL 参数读取股票代码，自动触发诊断（仅首次）
+  useEffect(() => {
+    const queryCode = searchParams.get('code');
+    if (queryCode && !autoRunRef.current) {
+      autoRunRef.current = true;
+      setCode(queryCode);
+      runAnalysis('diagnose', queryCode);
+    }
+  }, [searchParams]);
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -23,8 +37,9 @@ export default function AiDiagnosis() {
     }
   }, [content]);
 
-  const runAnalysis = async (type: AnalysisType) => {
-    if (!code.trim()) {
+  const runAnalysis = async (type: AnalysisType, overrideCode?: string) => {
+    const targetCode = overrideCode ?? code;
+    if (!targetCode.trim()) {
       setError('请输入股票代码');
       return;
     }
@@ -43,12 +58,12 @@ export default function AiDiagnosis() {
     };
 
     if (type === 'diagnose') {
-      api.diagnoseStockStream(code.trim(), onChunk, () => setLoading(false), (e) => {
+      api.diagnoseStockStream(targetCode.trim(), onChunk, () => setLoading(false), (e) => {
         setError(e);
         setLoading(false);
       });
     } else {
-      api.predictTrendStream(code.trim(), onChunk, () => setLoading(false), (e) => {
+      api.predictTrendStream(targetCode.trim(), onChunk, () => setLoading(false), (e) => {
         setError(e);
         setLoading(false);
       });
@@ -108,7 +123,7 @@ export default function AiDiagnosis() {
 
       <div ref={scrollRef} className="ai-report-container">
         {content ? (
-          <div className="ai-report-content">
+          <div style={{ position: 'relative' }}>
             <MarkdownView content={content} />
             {loading && <span className="ai-cursor">▊</span>}
           </div>

@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useStockStore } from '../stores/stockStore';
-import { api, Kline, SignalAnalysis, TradeSignal } from '../api';
+import { usePersistedState } from '../stores/persistedState';
+import { api, Kline, SignalAnalysis, TradeSignal, VolumePriceAnalysis, VpRelationship, TapeReadingAnalysis } from '../api';
 import KLineChart from '../components/KLineChart';
 
 function pctClass(pct: number): string {
@@ -36,6 +37,50 @@ function actionBg(score: number): string {
   return 'rgba(144,144,168,0.08)';
 }
 
+// 量价关系的中文标签与配色
+const VP_RELATION_META: Record<VpRelationship, { label: string; color: string; bg: string }> = {
+  VolumeUpPriceUp: { label: '量增价升', color: '#ef4444', bg: 'rgba(239,68,68,0.18)' },
+  VolumeUpPriceDown: { label: '量增价跌', color: '#22c55e', bg: 'rgba(34,197,94,0.18)' },
+  VolumeFlatPriceUp: { label: '价升量平', color: '#ff6b6b', bg: 'rgba(255,107,107,0.14)' },
+  VolumeFlatPriceDown: { label: '价跌量平', color: '#51cf66', bg: 'rgba(81,207,102,0.14)' },
+  VolumeDownPriceUp: { label: '量缩价升', color: '#ffa94d', bg: 'rgba(255,169,77,0.16)' },
+  VolumeDownPriceDown: { label: '量缩价跌', color: '#74c0fc', bg: 'rgba(116,192,252,0.16)' },
+  Neutral: { label: '价平量平', color: '#9090a8', bg: 'rgba(144,144,168,0.12)' },
+};
+
+function verdictColor(v: string): string {
+  if (v.includes('看多')) return '#ef4444';
+  if (v.includes('看空')) return '#22c55e';
+  return '#9090a8';
+}
+
+// 盘口解读 verdict 配色（看多红、看空绿、谨慎/关注橙、中性灰）
+function tapeVerdictColor(v: string): string {
+  if (v.includes('机构主导') || v.includes('机构吸筹')) return '#ef4444';
+  if (v.includes('主力出货') || v.includes('对倒诱多')) return '#22c55e';
+  if (v.includes('散户推动') || v.includes('游资主导')) return '#ffa94d';
+  return '#9090a8';
+}
+
+function tapeCategoryColor(c: string): string {
+  if (c === '偏多') return '#ef4444';
+  if (c === '偏空') return '#22c55e';
+  if (c === '关注') return '#ffa94d';
+  return '#9090a8';
+}
+
+function vpSignalColor(t: string): string {
+  if (t === 'Buy') return '#ef4444';
+  if (t === 'Sell') return '#22c55e';
+  return '#ffa94d';
+}
+
+function vpSignalLabel(t: string): string {
+  if (t === 'Buy') return '偏多';
+  if (t === 'Sell') return '偏空';
+  return '关注';
+}
+
 export default function StockAnalysis() {
   const [searchParams, setSearchParams] = useSearchParams();
   const {
@@ -51,10 +96,14 @@ export default function StockAnalysis() {
 
   const [klines, setKlines] = useState<Kline[]>([]);
   const [loadingKline, setLoadingKline] = useState(false);
-  const [period, setPeriod] = useState('daily');
+  const [period, setPeriod] = usePersistedState('stock.period', 'daily');
   const [signalAnalysis, setSignalAnalysis] = useState<SignalAnalysis | null>(null);
   const [loadingSignals, setLoadingSignals] = useState(false);
-  const [showAllSignals, setShowAllSignals] = useState(false);
+  const [showAllSignals, setShowAllSignals] = usePersistedState('stock.showAllSignals', false);
+  const [vpAnalysis, setVpAnalysis] = useState<VolumePriceAnalysis | null>(null);
+  const [loadingVp, setLoadingVp] = useState(false);
+  const [tapeReading, setTapeReading] = useState<TapeReadingAnalysis | null>(null);
+  const [loadingTape, setLoadingTape] = useState(false);
 
   // 从 URL 参数读取股票代码
   useEffect(() => {
@@ -64,11 +113,15 @@ export default function StockAnalysis() {
       fetchQuotes([code]);
       fetchKline(code, period);
       fetchSignals(code, period);
+      fetchVp(code, period);
+      fetchTape(code, period);
     } else if (!searchParams.get('code') && searchCode) {
       // 没有URL参数但有searchCode时也加载数据
       fetchQuotes([searchCode]);
       fetchKline(searchCode, period);
       fetchSignals(searchCode, period);
+      fetchVp(searchCode, period);
+      fetchTape(searchCode, period);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams]);
@@ -80,6 +133,8 @@ export default function StockAnalysis() {
     fetchQuotes([searchCode]);
     fetchKline(searchCode, period);
     fetchSignals(searchCode, period);
+    fetchVp(searchCode, period);
+    fetchTape(searchCode, period);
   };
 
   // 加载K线
@@ -116,6 +171,36 @@ export default function StockAnalysis() {
     if (searchCode) {
       fetchKline(searchCode, p);
       fetchSignals(searchCode, p);
+      fetchVp(searchCode, p);
+      fetchTape(searchCode, p);
+    }
+  };
+
+  // 加载量价分析
+  const fetchVp = async (code: string, p: string) => {
+    setLoadingVp(true);
+    try {
+      const data = await api.getVolumePriceAnalysis(code, p, 120);
+      setVpAnalysis(data);
+    } catch (e) {
+      console.error('Failed to fetch volume-price analysis:', e);
+      setVpAnalysis(null);
+    } finally {
+      setLoadingVp(false);
+    }
+  };
+
+  // 加载盘口解读
+  const fetchTape = async (code: string, p: string) => {
+    setLoadingTape(true);
+    try {
+      const data = await api.getTapeReading(code, p, 120);
+      setTapeReading(data);
+    } catch (e) {
+      console.error('Failed to fetch tape reading:', e);
+      setTapeReading(null);
+    } finally {
+      setLoadingTape(false);
     }
   };
 
@@ -125,7 +210,7 @@ export default function StockAnalysis() {
   };
 
   const currentQuote = quotes[0];
-  const isWatched = watchlist.includes(searchCode);
+  const isWatched = watchlist.some((w) => w.stock_code === searchCode);
 
   // K线图上显示的信号（只显示最近的可视范围）
   const chartSignals: TradeSignal[] = signalAnalysis?.signals.slice(-20) || [];
@@ -425,6 +510,216 @@ export default function StockAnalysis() {
           </div>
         </div>
       )}
+
+      {/* 量价分析 */}
+      {loadingVp ? (
+        <div className="card" style={{ marginTop: '16px' }}>
+          <div className="chart-loading">分析量价关系中...</div>
+        </div>
+      ) : vpAnalysis ? (
+        <div className="card" style={{ marginTop: '16px' }}>
+          <div className="card-title">量价分析</div>
+
+          {/* 概览 */}
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px', marginBottom: '16px' }}>
+            <div style={{ padding: '10px 16px', borderRadius: '8px', background: 'rgba(232,128,78,0.08)' }}>
+              <div style={{ fontSize: '0.78rem', color: '#9090a8' }}>量价 verdict</div>
+              <div style={{ fontSize: '1.3rem', fontWeight: 700, color: verdictColor(vpAnalysis.verdict) }}>
+                {vpAnalysis.verdict}
+              </div>
+            </div>
+            <div style={{ padding: '10px 16px', borderRadius: '8px', background: 'rgba(144,144,168,0.08)' }}>
+              <div style={{ fontSize: '0.78rem', color: '#9090a8' }}>量能状态</div>
+              <div style={{ fontSize: '1.3rem', fontWeight: 700, color: '#e8804e' }}>
+                {vpAnalysis.volume_status}
+              </div>
+            </div>
+            <div style={{ padding: '10px 16px', borderRadius: '8px', background: 'rgba(144,144,168,0.08)' }}>
+              <div style={{ fontSize: '0.78rem', color: '#9090a8' }}>当前量比 (量/MA5)</div>
+              <div style={{ fontSize: '1.3rem', fontWeight: 700, color: '#e0e0e8' }}>
+                {vpAnalysis.current_volume_ratio.toFixed(2)}
+              </div>
+            </div>
+          </div>
+
+          {/* 关键信号 */}
+          {vpAnalysis.signals.length > 0 && (
+            <div style={{ marginBottom: '16px' }}>
+              <div style={{ fontSize: '0.85rem', color: '#9090a8', marginBottom: '8px' }}>关键量价信号</div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                {vpAnalysis.signals.map((s, i) => (
+                  <div
+                    key={i}
+                    style={{
+                      display: 'flex',
+                      gap: '10px',
+                      alignItems: 'flex-start',
+                      padding: '8px 12px',
+                      borderRadius: '6px',
+                      background: 'var(--bg-surface-light)',
+                      borderLeft: `3px solid ${vpSignalColor(s.signal_type)}`,
+                    }}
+                  >
+                    <span
+                      style={{
+                        flexShrink: 0,
+                        padding: '2px 8px',
+                        borderRadius: '4px',
+                        fontSize: '0.78rem',
+                        fontWeight: 600,
+                        color: '#fff',
+                        background: vpSignalColor(s.signal_type),
+                      }}
+                    >
+                      {vpSignalLabel(s.signal_type)}
+                    </span>
+                    <div>
+                      <div style={{ fontWeight: 600, color: '#e0e0e8', fontSize: '0.9rem' }}>
+                        {s.name}
+                        <span style={{ marginLeft: '8px', fontSize: '0.75rem', color: '#9090a8' }}>
+                          {s.date} · 强度 {s.strength}
+                        </span>
+                      </div>
+                      <div style={{ fontSize: '0.82rem', color: 'var(--text-dim)', marginTop: '2px' }}>
+                        {s.description}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* 近期量价关系 */}
+          <div style={{ marginBottom: '16px' }}>
+            <div style={{ fontSize: '0.85rem', color: '#9090a8', marginBottom: '8px' }}>近期量价关系</div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+              {vpAnalysis.recent_bars.slice(-14).map((b, i) => {
+                const meta = VP_RELATION_META[b.relationship];
+                return (
+                  <div
+                    key={i}
+                    title={`${b.date} 收 ${b.close.toFixed(2)} (${b.pct_change > 0 ? '+' : ''}${b.pct_change.toFixed(2)}%) 量比 ${b.volume_ratio.toFixed(2)}`}
+                    style={{
+                      padding: '4px 8px',
+                      borderRadius: '4px',
+                      fontSize: '0.78rem',
+                      color: meta.color,
+                      background: meta.bg,
+                      whiteSpace: 'nowrap',
+                    }}
+                  >
+                    {meta.label}
+                  </div>
+                );
+              })}
+            </div>
+            <div style={{ fontSize: '0.75rem', color: '#9090a8', marginTop: '6px' }}>
+              左→右为时间由远及近；标签颜色：红=偏多，绿=偏空，橙/蓝=需关注
+            </div>
+          </div>
+
+          {/* 结论 */}
+          <div
+            style={{
+              padding: '12px 14px',
+              borderRadius: '8px',
+              background: 'rgba(232,128,78,0.06)',
+              border: '1px solid rgba(232,128,78,0.2)',
+              fontSize: '0.88rem',
+              lineHeight: 1.7,
+              color: 'var(--text-dim)',
+            }}
+          >
+            {vpAnalysis.conclusion}
+          </div>
+        </div>
+      ) : null}
+
+      {/* 盘口解读（Tape Reading） */}
+      {loadingTape ? (
+        <div className="card" style={{ marginTop: '16px' }}>
+          <div className="chart-loading">解读盘口中...</div>
+        </div>
+      ) : tapeReading ? (
+        <div className="card" style={{ marginTop: '16px' }}>
+          <div className="card-title">盘口解读（Tape Reading）</div>
+
+          {/* 概览 */}
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px', marginBottom: '16px' }}>
+            <div style={{ padding: '10px 16px', borderRadius: '8px', background: 'rgba(232,128,78,0.08)' }}>
+              <div style={{ fontSize: '0.75rem', color: '#9090a8' }}>盘口 verdict</div>
+              <div style={{ fontSize: '1.3rem', fontWeight: 700, color: tapeVerdictColor(tapeReading.verdict) }}>
+                {tapeReading.verdict}
+              </div>
+            </div>
+            <div style={{ padding: '10px 16px', borderRadius: '8px', background: 'rgba(144,144,168,0.08)' }}>
+              <div style={{ fontSize: '0.75rem', color: '#9090a8' }}>置信度</div>
+              <div style={{ fontSize: '1.1rem', fontWeight: 700 }}>{tapeReading.confidence}</div>
+            </div>
+            <div style={{ padding: '10px 16px', borderRadius: '8px', background: 'rgba(144,144,168,0.08)' }}>
+              <div style={{ fontSize: '0.75rem', color: '#9090a8' }}>主力净流入占比</div>
+              <div style={{ fontSize: '1.1rem', fontWeight: 700, color: tapeReading.main_participation >= 0 ? '#ef4444' : '#22c55e' }}>
+                {tapeReading.main_participation >= 0 ? '+' : ''}{tapeReading.main_participation.toFixed(2)}%
+              </div>
+            </div>
+            <div style={{ padding: '10px 16px', borderRadius: '8px', background: 'rgba(144,144,168,0.08)' }}>
+              <div style={{ fontSize: '0.75rem', color: '#9090a8' }}>超大单+大单净买</div>
+              <div style={{ fontSize: '1.1rem', fontWeight: 700, color: tapeReading.big_order_net >= 0 ? '#ef4444' : '#22c55e' }}>
+                {tapeReading.big_order_net >= 0 ? '+' : ''}{formatVolume(tapeReading.big_order_net * 10000)}
+              </div>
+            </div>
+          </div>
+
+          {/* 龙虎榜席位验证 */}
+          {tapeReading.dragon_tiger && (
+            <div style={{ marginBottom: '16px', padding: '10px 14px', borderRadius: '8px', background: 'rgba(116,192,252,0.08)', border: '1px solid rgba(116,192,252,0.2)' }}>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px', fontSize: '0.85rem', color: 'var(--text-dim)' }}>
+                <span>龙虎榜({tapeReading.dragon_tiger.date})：{tapeReading.dragon_tiger.reason}</span>
+                <span>榜净买 <b style={{ color: tapeReading.dragon_tiger.net_amount >= 0 ? '#ef4444' : '#22c55e' }}>{formatVolume(tapeReading.dragon_tiger.net_amount * 10000)}</b></span>
+                <span>机构席位净买 <b style={{ color: tapeReading.dragon_tiger.institution_net_buy >= 0 ? '#ef4444' : '#22c55e' }}>{formatVolume(tapeReading.dragon_tiger.institution_net_buy * 10000)}</b></span>
+                {tapeReading.dragon_tiger.hot_money_tags.length > 0 && (
+                  <span>游资标签：{tapeReading.dragon_tiger.hot_money_tags.join('、')}</span>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* 信号列表 */}
+          {tapeReading.signals.length > 0 && (
+            <div style={{ marginBottom: '16px' }}>
+              <div style={{ fontSize: '0.85rem', color: '#9090a8', marginBottom: '8px' }}>关键盘口信号</div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                {tapeReading.signals.map((s, i) => (
+                  <div key={i} style={{ padding: '8px 12px', borderRadius: '6px', background: 'rgba(144,144,168,0.06)' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <span style={{ fontSize: '0.7rem', padding: '1px 8px', borderRadius: '10px', color: tapeCategoryColor(s.category), border: `1px solid ${tapeCategoryColor(s.category)}` }}>{s.category}</span>
+                      <span style={{ fontWeight: 600 }}>{s.name}</span>
+                      <span style={{ fontSize: '0.75rem', color: '#9090a8' }}>强度 {s.strength}/5</span>
+                    </div>
+                    <div style={{ fontSize: '0.82rem', color: 'var(--text-dim)', marginTop: '4px', lineHeight: 1.6 }}>{s.detail}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* 结论 */}
+          <div
+            style={{
+              padding: '12px 14px',
+              borderRadius: '8px',
+              background: 'rgba(232,128,78,0.06)',
+              border: '1px solid rgba(232,128,78,0.2)',
+              fontSize: '0.88rem',
+              lineHeight: 1.7,
+              color: 'var(--text-dim)',
+            }}
+          >
+            {tapeReading.conclusion}
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

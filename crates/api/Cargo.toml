@@ -4,7 +4,7 @@ version.workspace = true
 edition.workspace = true
 
 [[bin]]
-name = "stock-assister"
+name = "stock-buddy"
 path = "src/main.rs"
 
 [dependencies]

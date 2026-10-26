@@ -1,5 +1,31 @@
 const API_BASE = '/api/v1';
 
+
+/** 数据源配置相关类型 */
+export interface LlmCfg {
+  api_key: string
+  base_url: string
+  model: string
+}
+export interface MxCfg {
+  api_key: string
+  base_url: string
+}
+export interface FuyaoCfg {
+  api_key: string
+}
+export interface ProviderStatus {
+  llm: boolean
+  mx: boolean
+  fuyao: boolean
+}
+export interface ProvidersView {
+  llm: LlmCfg
+  mx: MxCfg
+  fuyao: FuyaoCfg
+  status: ProviderStatus
+}
+
 export interface Quote {
   code: string;
   name: string;
@@ -1053,7 +1079,9 @@ export const api = {
 
   // AI 研判接口
   getAiStatus: () =>
-    request<{ configured: boolean; model: string }>(`${API_BASE}/ai/status`),
+    request<{ configured: boolean; engine: string; model: string; mx_configured: boolean }>(
+      `${API_BASE}/ai/status`,
+    ),
 
   /** 读取 AI 配置（api_key 为打码值） */
   getAiConfig: () =>
@@ -1099,6 +1127,48 @@ export const api = {
     }
     const data = JSON.parse(text) as { models?: string[] }
     return data.models ?? []
+  },
+
+  // ── 多数据源配置（LLM / 妙想 / 同花顺）─────────────────────────
+  getProviders: () => request<ProvidersView>(`${API_BASE}/providers`),
+
+  /**
+   * 保存数据源配置。后端会对打码值（含 ****）保持原 key 不变，
+   * 所以未修改的 key 直接原样回传即可。
+   */
+  updateProviders: async (cfg: { llm: LlmCfg; mx: MxCfg; fuyao: FuyaoCfg }) => {
+    const resp = await fetch(`${API_BASE}/providers`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(cfg),
+    })
+    const text = await resp.text()
+    if (!resp.ok) throw new Error(text || `保存失败 (${resp.status})`)
+    return JSON.parse(text) as ProvidersView
+  },
+
+  /**
+   * 连通性测试。用页面上**当前填写**的值测试，不需要先保存。
+   * 失败时后端会带 message，直接展示给用户即可。
+   */
+  testProvider: async (
+    kind: 'llm' | 'mx' | 'fuyao',
+    body: { api_key?: string; base_url?: string; model?: string },
+  ): Promise<{ ok: boolean; message: string; latency_ms?: number }> => {
+    const resp = await fetch(`${API_BASE}/providers/test/${kind}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    })
+    const text = await resp.text()
+    let parsed: { ok?: boolean; message?: string; latency_ms?: number }
+    try {
+      parsed = JSON.parse(text)
+    } catch {
+      throw new Error(text || `测试失败 (${resp.status})`)
+    }
+    if (!resp.ok) throw new Error(parsed.message || `测试失败 (${resp.status})`)
+    return { ok: true, message: parsed.message ?? '连接成功', latency_ms: parsed.latency_ms }
   },
 
   diagnoseStock: (code: string) =>

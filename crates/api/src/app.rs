@@ -33,6 +33,7 @@ pub async fn create_app() -> anyhow::Result<App> {
         .parent()
         .map(|p| p.to_path_buf())
         .unwrap_or_else(|| std::path::PathBuf::from("data"));
+    let providers = Arc::new(crate::providers::ProviderStore::load(&data_dir));
     let ai_config = Arc::new(crate::ai_config::AiConfigStore::load(&data_dir));
     let ai_settings = ai_config.get();
     let ai_service = analyzer::AiService::new(
@@ -49,6 +50,16 @@ pub async fn create_app() -> anyhow::Result<App> {
     } else {
         tracing::info!("AI 未配置，可在页面上设置 API Key");
     }
+    {
+        let st = providers.status();
+        tracing::info!(
+            llm = st.llm,
+            mx = st.mx,
+            fuyao = st.fuyao,
+            "数据源配置：{}",
+            data_dir.join("providers.json").display()
+        );
+    }
 
     let state = Arc::new(AppState::new(
         listen_addr,
@@ -57,6 +68,7 @@ pub async fn create_app() -> anyhow::Result<App> {
         ai_service,
         report_dir,
         ai_config,
+        providers,
     ));
 
     // 收盘后自动归档。默认关闭：它会在后台周期性访问行情源，不该在没人知道的
@@ -78,6 +90,7 @@ pub async fn create_app() -> anyhow::Result<App> {
         .merge(routes::market::router())
         .merge(routes::watchlist::router())
         .merge(routes::ai::router())
+        .merge(routes::providers::router())
         .merge(routes::analysis::router())
         .merge(routes::capital::router())
         .merge(routes::limitup::router())

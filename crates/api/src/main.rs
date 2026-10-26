@@ -1,4 +1,5 @@
 pub mod ai_config;
+pub mod providers;
 pub mod app;
 pub mod jobs;
 pub mod routes;

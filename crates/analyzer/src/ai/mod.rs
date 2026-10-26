@@ -2,6 +2,8 @@ pub mod llm;
 pub mod prompts;
 pub mod collector;
 pub mod service;
+pub mod mx;
 
 pub use llm::{LlmClient, LlmConfig, ChatMessage};
 pub use service::AiService;
+pub use mx::{MxClient, MxAnswer, MxError};

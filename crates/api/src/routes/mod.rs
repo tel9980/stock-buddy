@@ -16,3 +16,4 @@ pub mod sector_hotspot;
 pub mod t_backtest;
 pub mod sentiment;
 pub mod sentiment_report;
+pub mod providers;

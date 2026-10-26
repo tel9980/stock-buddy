@@ -4,6 +4,7 @@ use std::sync::{Arc, Mutex};
 
 use analyzer::AiService;
 use crate::ai_config::AiConfigStore;
+use crate::providers::ProviderStore;
 
 pub struct AppState {
     pub listen_addr: String,
@@ -12,6 +13,10 @@ pub struct AppState {
     pub ai: Arc<AiService>,
     /// AI 配置存储（页面可编辑，落盘 data/ai-config.json，热生效）
     pub ai_config: Arc<AiConfigStore>,
+    /// 多数据源配置（LLM / 妙想 / 同花顺），落盘 data/providers.json，热生效
+    pub providers: Arc<ProviderStore>,
+    /// 妙想客户端（key 变更后由 `mx()` 按需重建，避免持锁跨 await）
+    mx: Mutex<Option<(String, Arc<analyzer::ai::MxClient>)>>,
     /// 导出件留存目录（情绪日报 HTML 等）
     pub report_dir: PathBuf,
     /// 正在生成日报的日期 → 引用计数
@@ -33,6 +38,7 @@ impl AppState {
         ai: AiService,
         report_dir: PathBuf,
         ai_config: Arc<AiConfigStore>,
+        providers: Arc<ProviderStore>,
     ) -> Self {
         Self {
             listen_addr,
@@ -40,9 +46,34 @@ impl AppState {
             db,
             ai: Arc::new(ai),
             ai_config,
+            providers,
+            mx: Mutex::new(None),
             report_dir,
             in_flight: Mutex::new(HashMap::new()),
         }
+    }
+
+    /// 取妙想客户端。配置里的 key/base_url 变了就重建，否则复用。
+    ///
+    /// 返回 `Arc` 而不是借用：调用方拿到后立刻释放锁，避免跨 await 持锁。
+    pub fn mx(&self) -> Arc<analyzer::ai::MxClient> {
+        let cfg = self.providers.get().mx;
+        let sig = format!("{}|{}", cfg.base_url, cfg.api_key);
+        let mut guard = self.mx.lock().unwrap_or_else(|e| e.into_inner());
+        if let Some((cached_sig, client)) = guard.as_ref() {
+            if *cached_sig == sig {
+                return client.clone();
+            }
+        }
+        let client = Arc::new(analyzer::ai::MxClient::new(cfg.base_url, cfg.api_key));
+        *guard = Some((sig, client.clone()));
+        client
+    }
+
+    /// 主动丢弃缓存的妙想客户端（配置保存后调用，强制下次重建）
+    pub fn invalidate_mx(&self) {
+        let mut guard = self.mx.lock().unwrap_or_else(|e| e.into_inner());
+        *guard = None;
     }
 
     /// 标记某日期正在生成日报，返回守卫；守卫离开作用域时自动解除
@@ -107,6 +138,10 @@ mod tests {
             ai_config: Arc::new(crate::ai_config::AiConfigStore::load(
                 std::path::Path::new("data"),
             )),
+            providers: Arc::new(crate::providers::ProviderStore::load(
+                std::path::Path::new("data"),
+            )),
+            mx: Mutex::new(None),
             in_flight: Mutex::new(HashMap::new()),
         }
     }

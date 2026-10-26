@@ -38,8 +38,13 @@ pub fn router() -> Router<Arc<AppState>> {
 
 #[derive(Serialize)]
 struct AiStatus {
+    /// 是否至少有一个可用的 AI 引擎（LLM 或妙想）
     configured: bool,
+    /// 实际会使用的引擎：`llm` / `mx` / `none`
+    engine: String,
     model: String,
+    /// 妙想是否已配置（前端据此显示可选项）
+    mx_configured: bool,
 }
 
 /// 统一错误响应
@@ -61,9 +66,24 @@ fn ai_error(status: StatusCode, msg: impl Into<String>) -> (StatusCode, Json<Err
 
 /// GET /api/v1/ai/status - 检查 AI 配置状态
 async fn ai_status(State(state): State<Arc<AppState>>) -> Json<AiStatus> {
+    let llm_ok = state.ai.is_configured();
+    let mx_ok = state.mx().is_configured();
+    let engine = if llm_ok {
+        "llm"
+    } else if mx_ok {
+        "mx"
+    } else {
+        "none"
+    };
     Json(AiStatus {
-        configured: state.ai.is_configured(),
-        model: state.ai_config.get().model,
+        configured: llm_ok || mx_ok,
+        engine: engine.to_string(),
+        model: if llm_ok {
+            state.ai_config.get().model
+        } else {
+            "妙想金融大模型".to_string()
+        },
+        mx_configured: mx_ok,
     })
 }
 
@@ -220,12 +240,14 @@ async fn diagnose_stock(
     State(state): State<Arc<AppState>>,
     Path(code): Path<String>,
 ) -> Result<Json<AiResponse>, (StatusCode, Json<ErrorResponse>)> {
-    if !state.ai.is_configured() {
-        return Err(ai_error(StatusCode::SERVICE_UNAVAILABLE, "AI 未配置，请在 .env 中设置 LLM_API_KEY"));
-    }
+    ensure_engine(&state)?;
     tracing::info!(stock = %code, "开始 AI 个股诊断");
-    let content = state.ai.diagnose_stock(&code).await
-        .map_err(|e| ai_error(StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+    let content = if state.ai.is_configured() {
+        state.ai.diagnose_stock(&code).await
+            .map_err(|e| ai_error(StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?
+    } else {
+        mx_diagnose(&state, &code).await?
+    };
     tracing::info!(stock = %code, "AI 个股诊断完成");
 
     // 保存历史
@@ -239,12 +261,17 @@ async fn diagnose_stock_stream(
     State(state): State<Arc<AppState>>,
     Path(code): Path<String>,
 ) -> Result<Sse<impl Stream<Item = Result<Event, Infallible>>>, (StatusCode, Json<ErrorResponse>)> {
-    if !state.ai.is_configured() {
-        return Err(ai_error(StatusCode::SERVICE_UNAVAILABLE, "AI 未配置，请在 .env 中设置 LLM_API_KEY"));
-    }
+    ensure_engine(&state)?;
     tracing::info!(stock = %code, "开始 AI 个股诊断（流式）");
-    let rx = state.ai.diagnose_stock_stream(&code).await
-        .map_err(|e| ai_error(StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+    let rx = if state.ai.is_configured() {
+        state.ai.diagnose_stock_stream(&code).await
+            .map_err(|e| ai_error(StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?
+    } else {
+        match mx_diagnose(&state, &code).await {
+            Ok(t) => mx_mock_stream(t),
+            Err((_, Json(e))) => mx_stream_fallback(e.error),
+        }
+    };
 
     let name = state.fetcher.fetch_quote(&code).await.ok().map(|q| q.name);
     let meta = NewAiHistory {
@@ -257,7 +284,7 @@ async fn diagnose_stock_stream(
         stock_name: name,
         question: None,
         content: String::new(),
-        model: std::env::var("LLM_MODEL").ok(),
+        model: engine_model(&state),
     };
 
     Ok(Sse::new(forward_stream_and_save(rx, state.db.clone(), meta)))
@@ -267,12 +294,14 @@ async fn diagnose_stock_stream(
 async fn market_analysis(
     State(state): State<Arc<AppState>>,
 ) -> Result<Json<AiResponse>, (StatusCode, Json<ErrorResponse>)> {
-    if !state.ai.is_configured() {
-        return Err(ai_error(StatusCode::SERVICE_UNAVAILABLE, "AI 未配置，请在 .env 中设置 LLM_API_KEY"));
-    }
+    ensure_engine(&state)?;
     tracing::info!("开始 AI 市场研判");
-    let content = state.ai.analyze_market().await
-        .map_err(|e| ai_error(StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+    let content = if state.ai.is_configured() {
+        state.ai.analyze_market().await
+            .map_err(|e| ai_error(StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?
+    } else {
+        mx_market(&state).await?
+    };
     tracing::info!("AI 市场研判完成");
 
     save_history(&state, "market", None, None, None, &content).await;
@@ -284,12 +313,17 @@ async fn market_analysis(
 async fn market_analysis_stream(
     State(state): State<Arc<AppState>>,
 ) -> Result<Sse<impl Stream<Item = Result<Event, Infallible>>>, (StatusCode, Json<ErrorResponse>)> {
-    if !state.ai.is_configured() {
-        return Err(ai_error(StatusCode::SERVICE_UNAVAILABLE, "AI 未配置，请在 .env 中设置 LLM_API_KEY"));
-    }
+    ensure_engine(&state)?;
     tracing::info!("开始 AI 市场研判（流式）");
-    let rx = state.ai.analyze_market_stream().await
-        .map_err(|e| ai_error(StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+    let rx = if state.ai.is_configured() {
+        state.ai.analyze_market_stream().await
+            .map_err(|e| ai_error(StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?
+    } else {
+        match mx_market(&state).await {
+            Ok(t) => mx_mock_stream(t),
+            Err((_, Json(e))) => mx_stream_fallback(e.error),
+        }
+    };
 
     let meta = NewAiHistory {
         analysis_type: "market".to_string(),
@@ -298,7 +332,7 @@ async fn market_analysis_stream(
         stock_name: None,
         question: None,
         content: String::new(),
-        model: std::env::var("LLM_MODEL").ok(),
+        model: engine_model(&state),
     };
 
     Ok(Sse::new(forward_stream_and_save(rx, state.db.clone(), meta)))
@@ -309,12 +343,14 @@ async fn predict_trend(
     State(state): State<Arc<AppState>>,
     Path(code): Path<String>,
 ) -> Result<Json<AiResponse>, (StatusCode, Json<ErrorResponse>)> {
-    if !state.ai.is_configured() {
-        return Err(ai_error(StatusCode::SERVICE_UNAVAILABLE, "AI 未配置，请在 .env 中设置 LLM_API_KEY"));
-    }
+    ensure_engine(&state)?;
     tracing::info!(stock = %code, "开始 AI 趋势预测");
-    let content = state.ai.predict_trend(&code).await
-        .map_err(|e| ai_error(StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+    let content = if state.ai.is_configured() {
+        state.ai.predict_trend(&code).await
+            .map_err(|e| ai_error(StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?
+    } else {
+        mx_predict(&state, &code).await?
+    };
     tracing::info!(stock = %code, "AI 趋势预测完成");
 
     save_history(&state, "predict", Some(&code), None, None, &content).await;
@@ -327,12 +363,17 @@ async fn predict_trend_stream(
     State(state): State<Arc<AppState>>,
     Path(code): Path<String>,
 ) -> Result<Sse<impl Stream<Item = Result<Event, Infallible>>>, (StatusCode, Json<ErrorResponse>)> {
-    if !state.ai.is_configured() {
-        return Err(ai_error(StatusCode::SERVICE_UNAVAILABLE, "AI 未配置，请在 .env 中设置 LLM_API_KEY"));
-    }
+    ensure_engine(&state)?;
     tracing::info!(stock = %code, "开始 AI 趋势预测（流式）");
-    let rx = state.ai.predict_trend_stream(&code).await
-        .map_err(|e| ai_error(StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+    let rx = if state.ai.is_configured() {
+        state.ai.predict_trend_stream(&code).await
+            .map_err(|e| ai_error(StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?
+    } else {
+        match mx_predict(&state, &code).await {
+            Ok(t) => mx_mock_stream(t),
+            Err((_, Json(e))) => mx_stream_fallback(e.error),
+        }
+    };
 
     let name = state.fetcher.fetch_quote(&code).await.ok().map(|q| q.name);
     let meta = NewAiHistory {
@@ -345,7 +386,7 @@ async fn predict_trend_stream(
         stock_name: name,
         question: None,
         content: String::new(),
-        model: std::env::var("LLM_MODEL").ok(),
+        model: engine_model(&state),
     };
 
     Ok(Sse::new(forward_stream_and_save(rx, state.db.clone(), meta)))
@@ -356,12 +397,14 @@ async fn chat(
     State(state): State<Arc<AppState>>,
     Json(req): Json<ChatRequest>,
 ) -> Result<Json<AiResponse>, (StatusCode, Json<ErrorResponse>)> {
-    if !state.ai.is_configured() {
-        return Err(ai_error(StatusCode::SERVICE_UNAVAILABLE, "AI 未配置，请在 .env 中设置 LLM_API_KEY"));
-    }
+    ensure_engine(&state)?;
     tracing::info!(question = %req.question, "开始 AI 智能问答");
-    let content = state.ai.chat(&req.question).await
-        .map_err(|e| ai_error(StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+    let content = if state.ai.is_configured() {
+        state.ai.chat(&req.question).await
+            .map_err(|e| ai_error(StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?
+    } else {
+        mx_ask(&state, &req.question).await?
+    };
     tracing::info!("AI 智能问答完成");
 
     save_history(&state, "chat", None, None, Some(&req.question), &content).await;
@@ -374,12 +417,17 @@ async fn chat_stream(
     State(state): State<Arc<AppState>>,
     Json(req): Json<ChatRequest>,
 ) -> Result<Sse<impl Stream<Item = Result<Event, Infallible>>>, (StatusCode, Json<ErrorResponse>)> {
-    if !state.ai.is_configured() {
-        return Err(ai_error(StatusCode::SERVICE_UNAVAILABLE, "AI 未配置，请在 .env 中设置 LLM_API_KEY"));
-    }
+    ensure_engine(&state)?;
     tracing::info!(question = %req.question, "开始 AI 智能问答（流式）");
-    let rx = state.ai.chat_stream(&req.question).await
-        .map_err(|e| ai_error(StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+    let rx = if state.ai.is_configured() {
+        state.ai.chat_stream(&req.question).await
+            .map_err(|e| ai_error(StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?
+    } else {
+        match mx_ask(&state, &req.question).await {
+            Ok(t) => mx_mock_stream(t),
+            Err((_, Json(e))) => mx_stream_fallback(e.error),
+        }
+    };
 
     let question = req.question.clone();
     let meta = NewAiHistory {
@@ -393,10 +441,133 @@ async fn chat_stream(
         stock_name: None,
         question: Some(question),
         content: String::new(),
-        model: std::env::var("LLM_MODEL").ok(),
+        model: engine_model(&state),
     };
 
     Ok(Sse::new(forward_stream_and_save(rx, state.db.clone(), meta)))
+}
+
+
+/// 引擎选择：LLM 已配置就用 LLM，否则回落妙想。两者都没配才报错。
+fn ensure_engine(state: &AppState) -> Result<(), (StatusCode, Json<ErrorResponse>)> {
+    if state.ai.is_configured() || state.mx().is_configured() {
+        return Ok(());
+    }
+    Err(ai_error(
+        StatusCode::SERVICE_UNAVAILABLE,
+        "AI 未配置：请到「设置」页填写大模型 Key 或东方财富妙想 Key",
+    ))
+}
+
+/// 妙想没有流式 API，只能拿到完整答案。为了不让人对着空白页干等，
+/// 这里按句子切成小段做**伪流式**推送（每段之间 25ms）。
+fn mx_mock_stream(text: String) -> mpsc::Receiver<Result<String, anyhow::Error>> {
+    let (tx, rx) = mpsc::channel(32);
+    tokio::spawn(async move {
+        let mut buf = String::new();
+        for ch in text.chars() {
+            buf.push(ch);
+            // 在句末或段落处切块，避免把一个词拆开
+            if matches!(ch, '。' | '！' | '？' | '；' | '\n') || buf.chars().count() >= 40 {
+                if tx.send(Ok(std::mem::take(&mut buf))).await.is_err() {
+                    return;
+                }
+                tokio::time::sleep(std::time::Duration::from_millis(25)).await;
+            }
+        }
+        if !buf.is_empty() {
+            let _ = tx.send(Ok(buf)).await;
+        }
+    });
+    rx
+}
+
+/// 妙想故障统一转成 SSE 内的错误事件，避免前端只看到空流。
+fn mx_stream_fallback(msg: String) -> mpsc::Receiver<Result<String, anyhow::Error>> {
+    let (tx, rx) = mpsc::channel(1);
+    tokio::spawn(async move {
+        let _ = tx.send(Err(anyhow::anyhow!(msg))).await;
+    });
+    rx
+}
+
+/// 当前使用的引擎名称（写进历史记录，方便回看时知道是谁答的）
+fn engine_model(state: &AppState) -> Option<String> {
+    if state.ai.is_configured() {
+        Some(state.ai_config.get().model)
+    } else if state.mx().is_configured() {
+        Some("妙想".to_string())
+    } else {
+        None
+    }
+}
+
+
+// ── 妙想分支的具体问法 ─────────────────────────────────────────
+//
+// 妙想是「自然语言问答」接口，没有 system prompt 的概念，所以提示词要写进问题里。
+// 返回的 markdown 直接交给前端渲染。
+
+fn mx_to_err(e: analyzer::ai::MxError) -> (StatusCode, Json<ErrorResponse>) {
+    let code = match e {
+        analyzer::ai::MxError::NotConfigured => StatusCode::SERVICE_UNAVAILABLE,
+        analyzer::ai::MxError::Upstream(_) => StatusCode::BAD_GATEWAY,
+        analyzer::ai::MxError::Transport(_) => StatusCode::BAD_GATEWAY,
+        analyzer::ai::MxError::Empty(_) => StatusCode::BAD_GATEWAY,
+    };
+    ai_error(code, e.to_string())
+}
+
+async fn mx_ask(state: &AppState, question: &str) -> Result<String, (StatusCode, Json<ErrorResponse>)> {
+    state.mx().ask(question, true).await
+        .map(|a| a.content)
+        .map_err(mx_to_err)
+}
+
+async fn mx_diagnose(state: &AppState, code: &str) -> Result<String, (StatusCode, Json<ErrorResponse>)> {
+    // 先本地取名字，让妙想的诊断更准（它也能自己查，但省一轮）
+    let name = state.fetcher.fetch_quote(code).await.ok().map(|q| q.name);
+    let client = state.mx();
+    let ans = match &name {
+        Some(n) => client.stock_analysis(code, n).await,
+        None => {
+            client.ask(
+                &format!("请对A股 {code} 做一次完整的个股诊断：基本面、技术面、资金面、风险点，用 markdown 分节输出"),
+                true,
+            )
+            .await
+        }
+    };
+    ans.map(|a| a.content).map_err(mx_to_err)
+}
+
+async fn mx_market(state: &AppState) -> Result<String, (StatusCode, Json<ErrorResponse>)> {
+    state
+        .mx()
+        .ask(
+            "请对当前A股市场做一个简短研判：大盘情绪、热点板块、资金动向、后市展望，用 markdown 分节输出",
+            true,
+        )
+        .await
+        .map(|a| a.content)
+        .map_err(mx_to_err)
+}
+
+async fn mx_predict(state: &AppState, code: &str) -> Result<String, (StatusCode, Json<ErrorResponse>)> {
+    let name = state.fetcher.fetch_quote(code).await.ok().map(|q| q.name);
+    let who = match &name {
+        Some(n) => format!("{n}({code})"),
+        None => format!("A股 {code}"),
+    };
+    state
+        .mx()
+        .ask(
+            &format!("请分析 {who} 的未来趋势：趋势方向、关键价位、支撑压力、风险提示，并明确说明这只是分析不是投资建议"),
+            true,
+        )
+        .await
+        .map(|a| a.content)
+        .map_err(mx_to_err)
 }
 
 /// 保存一条历史记录（best-effort，失败仅记日志）
@@ -418,7 +589,7 @@ async fn save_history(
         stock_name: stock_name.map(|s| s.to_string()),
         question: question.map(|s| s.to_string()),
         content: content.to_string(),
-        model: std::env::var("LLM_MODEL").ok(),
+        model: engine_model(&state),
     };
     let repo = Repository::from_database(&state.db);
     if let Err(e) = repo.save_ai_history(&record).await {

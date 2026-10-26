@@ -1453,6 +1453,7 @@ mod tests {
             ),
             std::path::PathBuf::from("data/reports"),
             Arc::new(crate::ai_config::AiConfigStore::load(std::path::Path::new("data"))),
+            Arc::new(crate::providers::ProviderStore::load(std::path::Path::new("data"))),
         );
 
         let old_first = "2026-09-01";

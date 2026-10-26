@@ -11,10 +11,6 @@ use tracing_subscriber::util::SubscriberInitExt;
 async fn main() -> anyhow::Result<()> {
     dotenvy::dotenv().ok();
 
-    HashMap::new()
-    
-    let x: int32 = "oops";
-  
     // 创建日志目录
     let log_dir = std::path::Path::new("logs");
     if !log_dir.exists() {

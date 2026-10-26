@@ -806,7 +806,7 @@ fields=f3,f6,f12,f14,f104,f105,f106,f128,f140,f136",
     /// 腾讯 K 线只支持「最近 N 根」，不支持按日期区间查询，因此要按目标日期
     /// 与今天的自然日距离估算交易日数量，再留出缓冲，避免目标日落在窗口之外。
     pub fn bars_needed_for(date: &str) -> u32 {
-        let today = chrono::Local::now().date_naive();
+        let today = crate::clock::today();
         let target = chrono::NaiveDate::parse_from_str(date, "%Y-%m-%d").ok();
 
         let days = match target {
@@ -1870,7 +1870,7 @@ impl DataFetcher for EastmoneyFetcher {
         let items = resp.data.and_then(|d| d.diff).unwrap_or_default();
 
         let mut total = MarketCapitalFlow {
-            date: chrono::Local::now().format("%Y-%m-%d").to_string(),
+            date: crate::clock::today_str(),
             main_net_inflow: 0.0,
             huge_net_inflow: 0.0,
             large_net_inflow: 0.0,

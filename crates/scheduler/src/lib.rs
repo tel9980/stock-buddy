@@ -361,12 +361,12 @@ impl Scheduler {
 }
 
 fn local_date() -> String {
-    chrono::Local::now().format("%Y-%m-%d").to_string()
+    fetcher::clock::today_str()
 }
 
 /// 最近 N 个工作日（含今天），按日期升序返回
 fn recent_workdays(n: usize) -> Vec<String> {
-    let today = chrono::Local::now().date_naive();
+    let today = fetcher::clock::today();
     let mut out = Vec::new();
     let mut back: i64 = 0;
     // 上限 30 天：即便配置写错也不会退化成无限循环

@@ -3,7 +3,7 @@
 //! 设计参考了 quant-desktop 的 MarketSession 思路（市场时段 → 分级轮询间隔），
 //! 独立实现；固定 UTC+8 判定，不依赖宿主机时区。
 
-use chrono::{DateTime, FixedOffset, Datelike, NaiveTime, Utc, Weekday};
+use chrono::{DateTime, Datelike, FixedOffset, NaiveTime, Weekday};
 
 /// A 股交易时段（固定按东八区判定，节假日不在此处理，由上游探测降频兜底）
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -23,9 +23,8 @@ pub enum MarketSession {
 impl MarketSession {
     /// 当前 A 股时段。固定 UTC+8，与宿主 TZ 无关。
     pub fn now() -> Self {
-        let cst: FixedOffset = FixedOffset::east_opt(8 * 3600).expect("UTC+8 valid");
-        let now: DateTime<Utc> = Utc::now();
-        Self::from_datetime(now.with_timezone(&cst))
+        // 统一走 crate::clock，避免本项目里出现第二处东八区偏移构造
+        Self::from_datetime(crate::clock::now())
     }
 
     /// 从指定东八区时间判定时段（供测试注入）。

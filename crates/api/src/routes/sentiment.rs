@@ -343,7 +343,7 @@ async fn resolve_date(raw: Option<&str>) -> Result<String, ApiError> {
     }
 
     let em = EastmoneyFetcher::new();
-    let today = chrono::Local::now().date_naive();
+    let today = fetcher::clock::today();
 
     for back in 0..15 {
         let candidate = today - chrono::Duration::days(back);
@@ -820,7 +820,7 @@ async fn load_or_fetch_bars(
     }
 
     // 本地日期。序列当天抓过就不再重抓，见上面的说明
-    let today = chrono::Local::now().format("%Y-%m-%d").to_string();
+    let today = fetcher::clock::today_str();
     let metas = repo.all_series_meta().await.unwrap_or_default();
 
     let missing_len = missing.len();
@@ -1141,7 +1141,7 @@ pub(crate) async fn refresh_stale_series(
     repo: &storage::Repository,
     targets: &[(String, String)],
 ) -> SeriesRefreshResult {
-    let today = chrono::Local::now().format("%Y-%m-%d").to_string();
+    let today = fetcher::clock::today_str();
     let fetcher = state.fetcher.clone();
 
     // 现有记录里 `complete` 的取值。刷新只刷新价格，不刷新这个断言——它只能
@@ -1476,7 +1476,7 @@ mod tests {
         assert_eq!(r.failed, 0);
         assert!(r.rows > 100, "应落库一整条序列，实际 {} 行", r.rows);
 
-        let today = chrono::Local::now().format("%Y-%m-%d").to_string();
+        let today = fetcher::clock::today_str();
         let metas = repo.all_series_meta().await.unwrap();
         for code in ["000001", "600519"] {
             let m = metas.get(code).expect("刷新后应仍有记录");

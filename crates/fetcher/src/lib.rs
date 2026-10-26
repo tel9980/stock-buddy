@@ -7,6 +7,7 @@ pub mod fuyao;
 pub mod push2;
 pub mod sina_boards;
 pub mod market_clock;
+pub mod clock;
 pub mod headers;
 
 pub use traits::*;
@@ -16,4 +17,5 @@ pub use sina::SinaFetcher;
 pub use ths::ThsFetcher;
 pub use fuyao::FuyaoFetcher;
 pub use market_clock::{AdaptivePoller, MarketSession};
+pub use clock as market_time;
 pub use headers::{shared_client, with_browser_headers};

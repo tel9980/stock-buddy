@@ -305,41 +305,14 @@ struct PagedData<T> {
 /// 不查交易日历（节假日会退到「节前最后一个工作日」，此时上游返回空池，
 /// 与东财主源的表现一致，不会引入新的错误说法）。
 fn recent_trading_day_ms() -> i64 {
-    use chrono::{Datelike, Duration, FixedOffset, TimeZone, Utc, Weekday};
-
-    let cst = FixedOffset::east_opt(8 * 3600).expect("UTC+8 合法");
-    let today = Utc::now().with_timezone(&cst).date_naive();
-    let back = match today.weekday() {
-        Weekday::Sat => 1,
-        Weekday::Sun => 2,
-        _ => 0,
-    };
-    let d = today - Duration::days(back);
-    cst.from_local_datetime(&d.and_hms_opt(0, 0, 0).expect("00:00:00 合法"))
-        .single()
-        .map(|dt| dt.timestamp_millis())
-        .unwrap_or(0)
+    let today = crate::clock::today();
+    crate::clock::day_start_ms(crate::clock::last_workday(today))
 }
 
 /// 上一个交易日的上海时区零点毫秒戳（往回退 1 天，遇周末继续退）。
 fn prev_trading_day_ms(from_ms: i64) -> i64 {
-    use chrono::{Datelike, Duration, FixedOffset, TimeZone, Timelike, Utc, Weekday};
-
-    let cst = FixedOffset::east_opt(8 * 3600).expect("UTC+8 合法");
-    let base = Utc
-        .timestamp_millis_opt(from_ms)
-        .single()
-        .map(|dt| dt.with_timezone(&cst))
-        .unwrap_or_else(|| Utc::now().with_timezone(&cst));
-    let mut d = base.date_naive() - Duration::days(1);
-    while matches!(d.weekday(), Weekday::Sat | Weekday::Sun) {
-        d -= Duration::days(1);
-    }
-    let _ = base.hour(); // 保留 Timelike 引入的显式意图
-    cst.from_local_datetime(&d.and_hms_opt(0, 0, 0).expect("00:00:00 合法"))
-        .single()
-        .map(|dt| dt.timestamp_millis())
-        .unwrap_or(0)
+    let base = crate::clock::date_of_ms(from_ms).unwrap_or_else(crate::clock::today);
+    crate::clock::day_start_ms(crate::clock::last_workday(base - chrono::Duration::days(1)))
 }
 
 /// 元 → 万元（项目模型统一单位）。上游给 null 时按 0 处理。

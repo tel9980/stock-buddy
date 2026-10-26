@@ -10,6 +10,6 @@ services:
     environment:
       - TZ=Asia/Shanghai
       - RUST_LOG=info
-      # AI 功能（可选）：
+      # AI 功能（可选，去注释并填 key）：
       # - OPENAI_API_KEY=sk-xxx
       # - OPENAI_BASE_URL=https://api.openai.com/v1

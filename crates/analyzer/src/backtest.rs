@@ -30,8 +30,21 @@ pub fn run_t_backtest(
     let last_close = klines.last().map(|k| k.close).unwrap_or(0.0);
     let last_date = klines.last().map(|k| k.date.clone()).unwrap_or_default();
     let last_index = klines.len().saturating_sub(1);
-    let trades = build_trades(&signals, config, last_close, &last_date, last_index);
-    let stats = compute_stats(&trades, &signals);
+    // 防未来函数：信号在第 i 根收盘生成，不能以第 i 根收盘价成交。
+    // 回测执行统一顺延到第 i+1 根开盘价；最后一根出现的信号无法成交，丢弃。
+    let exec_signals: Vec<appcore::TSignal> = signals
+        .iter()
+        .filter_map(|sig| {
+            let next = klines.get(sig.index + 1)?;
+            let mut s = sig.clone();
+            s.index = sig.index + 1;
+            s.date = next.date.clone();
+            s.price = if next.open > 0.0 { next.open } else { next.close };
+            Some(s)
+        })
+        .collect();
+    let trades = build_trades(&exec_signals, config, last_close, &last_date, last_index);
+    let stats = compute_stats(&trades, &exec_signals);
     let equity_curve = build_equity_curve(&trades);
     let conclusion = build_conclusion(&stats);
 

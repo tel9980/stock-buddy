@@ -22,4 +22,17 @@ export default defineConfig({
       },
     },
   },
+  build: {
+    rollupOptions: {
+      output: {
+        // 大依赖单独分包：antd/echarts/react-markdown 变更频率远低于业务代码，
+        // 分包后业务改动不会打爆这些 chunk 的缓存
+        manualChunks: {
+          'vendor-antd': ['antd', '@ant-design/icons'],
+          'vendor-echarts': ['echarts'],
+          'vendor-markdown': ['react-markdown', 'remark-gfm', 'rehype-raw', 'rehype-sanitize'],
+        },
+      },
+    },
+  },
 })

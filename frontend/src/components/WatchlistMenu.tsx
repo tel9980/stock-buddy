@@ -46,10 +46,13 @@ export default function WatchlistMenu() {
 
   const saveEdit = async (code: string) => {
     try {
-      await api.updateWatchlist(code, editCost, editShares);
+      const resp = await api.updateWatchlist(code, editCost, editShares);
+      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
       await fetchWatchlist();
     } catch (e) {
       console.error('更新自选股失败', e);
+      // 写接口失败必须让用户可见，不能静默吞掉
+      alert('更新自选股失败，请稍后重试');
     }
     setEditCode(null);
   };

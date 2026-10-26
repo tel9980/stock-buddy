@@ -59,9 +59,20 @@ export default function CapitalFlowPage() {
   const [watchFlows, setWatchFlows] = useState<{ code: string; name: string; flows: CapitalFlow[]; latest?: CapitalFlow }[]>([])
   const [watchLoading, setWatchLoading] = useState(false)
 
+  // ECharts 实例持有（卸载时 dispose，避免内存泄漏）
+  const nbChart = useRef<echarts.ECharts | null>(null)
+  const mtChart = useRef<echarts.ECharts | null>(null)
+
   useEffect(() => {
     loadOverview()
     fetchWatchlist()
+    return () => {
+      nbChart.current?.dispose()
+      mtChart.current?.dispose()
+      nbChart.current = null
+      mtChart.current = null
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   // 加载自选股资金流
@@ -101,9 +112,10 @@ export default function CapitalFlowPage() {
       ])
       setOverview(ov)
       setNbHoldings(nb)
+      // 数据源为「最新在前」，图表按时间正序渲染，需反转副本（不能原地反转 props）
       setTimeout(() => {
-        renderHoldingsChart(nb.reverse())
-        renderMarginChart(mt.reverse())
+        renderHoldingsChart([...nb].reverse())
+        renderMarginChart([...mt].reverse())
       }, 100)
     } catch (e) {
       message.error('加载资金流向数据失败')
@@ -113,8 +125,9 @@ export default function CapitalFlowPage() {
 
   function renderHoldingsChart(data: NorthBoundHoldings[]) {
     if (!nbChartRef.current) return
-    const chart = echarts.init(nbChartRef.current)
-    chart.setOption({
+    // 复用实例：重复 init 会泄漏旧实例
+    if (!nbChart.current) nbChart.current = echarts.init(nbChartRef.current)
+    nbChart.current.setOption({
       tooltip: { trigger: 'axis' },
       legend: { top: 0, textStyle: { color: '#999', fontSize: 11 } },
       grid: { left: 60, right: 20, top: 30, bottom: 30 },
@@ -125,13 +138,12 @@ export default function CapitalFlowPage() {
         { name: '增减持市值', type: 'bar', data: data.map(d => d.add_market_cap / 1e8), itemStyle: { color: '#e8804e' } },
       ],
     })
-    return () => chart.dispose()
   }
 
   function renderMarginChart(data: MarginTrading[]) {
     if (!mtChartRef.current) return
-    const chart = echarts.init(mtChartRef.current)
-    chart.setOption({
+    if (!mtChart.current) mtChart.current = echarts.init(mtChartRef.current)
+    mtChart.current.setOption({
       tooltip: { trigger: 'axis' },
       legend: { top: 0, textStyle: { color: '#999', fontSize: 11 } },
       grid: { left: 60, right: 60, top: 30, bottom: 30 },
@@ -146,7 +158,6 @@ export default function CapitalFlowPage() {
         { name: '融资净买入', type: 'bar', data: data.map(d => d.margin_net_buy), itemStyle: { color: '#e8804e' }, yAxisIndex: 1 },
       ],
     })
-    return () => chart.dispose()
   }
 
   async function searchStock() {

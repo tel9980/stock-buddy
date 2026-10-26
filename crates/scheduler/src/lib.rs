@@ -301,7 +301,13 @@ impl Scheduler {
                 // tick 内部若 panic 会让整个调度停摆，这是刻意的：静默吞掉
                 // panic 会让故障彻底不可见，宁可停在这里被日志追到。
                 self.tick().await;
-                tokio::time::sleep(self.config.interval).await;
+                // 交易时段感知间隔：休市/午休时段拉长休眠，减少对数据源的
+                // 无效轮询（设计参考 quant-desktop 的 MarketSession 分级思想）。
+                // 历史补数类任务不受行情时段影响，取两者较小值保守处理。
+                let session = fetcher::MarketSession::now();
+                let market_backoff = Duration::from_secs(session.poll_interval(true));
+                let wait = self.config.interval.min(market_backoff);
+                tokio::time::sleep(wait).await;
             }
         })
     }

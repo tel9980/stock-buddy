@@ -745,9 +745,10 @@ async function streamSSE(
   onChunk: (text: string) => void,
   onDone?: () => void,
   onError?: (err: string) => void,
+  signal?: AbortSignal,
 ): Promise<void> {
   try {
-    const resp = await fetch(url);
+    const resp = await fetch(url, { signal });
     if (!resp.ok) {
       onError?.(await parseErrorResponse(resp));
       return;
@@ -798,6 +799,11 @@ async function streamSSE(
     flushEvent();
     onDone?.();
   } catch (e) {
+    // 用户主动中断不算错误
+    if (e instanceof DOMException && e.name === 'AbortError') {
+      onDone?.();
+      return;
+    }
     onError?.(e instanceof Error ? e.message : '未知错误');
   }
 }
@@ -1057,7 +1063,8 @@ export const api = {
     onChunk: (text: string) => void,
     onDone?: () => void,
     onError?: (err: string) => void,
-  ) => streamSSE(`${API_BASE}/ai/diagnose/${code}/stream`, onChunk, onDone, onError),
+    signal?: AbortSignal,
+  ) => streamSSE(`${API_BASE}/ai/diagnose/${code}/stream`, onChunk, onDone, onError, signal),
 
   marketAnalysis: () =>
     request<{ content: string }>(`${API_BASE}/ai/market`),
@@ -1066,7 +1073,8 @@ export const api = {
     onChunk: (text: string) => void,
     onDone?: () => void,
     onError?: (err: string) => void,
-  ) => streamSSE(`${API_BASE}/ai/market/stream`, onChunk, onDone, onError),
+    signal?: AbortSignal,
+  ) => streamSSE(`${API_BASE}/ai/market/stream`, onChunk, onDone, onError, signal),
 
   predictTrend: (code: string) =>
     request<{ content: string }>(`${API_BASE}/ai/predict/${code}`),
@@ -1076,7 +1084,8 @@ export const api = {
     onChunk: (text: string) => void,
     onDone?: () => void,
     onError?: (err: string) => void,
-  ) => streamSSE(`${API_BASE}/ai/predict/${code}/stream`, onChunk, onDone, onError),
+    signal?: AbortSignal,
+  ) => streamSSE(`${API_BASE}/ai/predict/${code}/stream`, onChunk, onDone, onError, signal),
 
   chat: (question: string) =>
     request<{ content: string }>(`${API_BASE}/ai/chat`, ),

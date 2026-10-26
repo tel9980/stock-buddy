@@ -2,20 +2,19 @@ use async_trait::async_trait;
 use appcore::models::*;
 use appcore::{AppError, AppResult};
 use crate::traits::DataFetcher;
-use reqwest::Client;
+use crate::headers::shared_client;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 /// 新浪财经数据采集器
 pub struct SinaFetcher {
-    client: Client,
+    client: reqwest::Client,
 }
 
 impl SinaFetcher {
     pub fn new() -> Self {
-        let client = Client::builder()
-            .user_agent("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)")
-            .build()
-            .expect("Failed to create HTTP client");
+        // 新浪 hq 接口响应体为 GBK 编码，必须显式解码，否则中文股票名乱码。
+        // Client 用全仓共享单例（连接池共享 + 统一超时）。
+        let client = shared_client().clone();
         Self { client }
     }
 
@@ -32,7 +31,7 @@ impl SinaFetcher {
     fn now_ts() -> i64 {
         SystemTime::now()
             .duration_since(UNIX_EPOCH)
-            .unwrap()
+            .unwrap_or_default()
             .as_secs() as i64
     }
 }
@@ -41,6 +40,30 @@ impl Default for SinaFetcher {
     fn default() -> Self {
         Self::new()
     }
+}
+
+/// 构造新浪接口的反屏蔽请求头（轮换 UA + Referer + keep-alive）。
+fn browser_headers(referer: &str) -> reqwest::header::HeaderMap {
+    use reqwest::header::{HeaderMap, HeaderValue, CONNECTION};
+    let mut h = HeaderMap::new();
+    if let Ok(v) = HeaderValue::from_str(crate::headers::pick_user_agent()) {
+        h.insert(reqwest::header::USER_AGENT, v);
+    }
+    if let Ok(v) = HeaderValue::from_str(referer) {
+        h.insert(reqwest::header::REFERER, v);
+    }
+    h.insert(CONNECTION, HeaderValue::from_static("keep-alive"));
+    h
+}
+
+/// 新浪 hq 接口响应体是 GBK 编码，按字节解码而非按 UTF-8 文本读。
+async fn gbk_text(resp: reqwest::Response) -> AppResult<String> {
+    let bytes = resp.bytes().await?;
+    let (decoded, _, had_errors) = encoding_rs::GBK.decode(&bytes);
+    if had_errors {
+        tracing::debug!("sina response had GBK decoding errors (partial fallback)");
+    }
+    Ok(decoded.into_owned())
 }
 
 #[async_trait]
@@ -52,11 +75,11 @@ impl DataFetcher for SinaFetcher {
         let resp = self
             .client
             .get(&url)
-            .header("Referer", "https://finance.sina.com.cn")
+            .headers(browser_headers("https://finance.sina.com.cn"))
             .send()
             .await?;
 
-        let text = resp.text().await?;
+        let text = gbk_text(resp).await?;
         let text = text.trim();
 
         // 格式: var hq_str_sh600000="浦发银行,7.12,7.10,..."
@@ -118,17 +141,19 @@ impl DataFetcher for SinaFetcher {
         let resp = self
             .client
             .get(&url)
-            .header("Referer", "https://finance.sina.com.cn")
+            .headers(browser_headers("https://finance.sina.com.cn"))
             .send()
             .await?;
 
-        let text = resp.text().await?;
+        let text = gbk_text(resp).await?;
         let mut quotes = Vec::with_capacity(codes.len());
 
         for (i, code) in codes.iter().enumerate() {
             let var_name = format!("hq_str_{}=", sina_codes[i]);
-            if let Some(start) = text[i..].find(&var_name) {
-                let abs_start = i + start + var_name.len();
+            // 用 find 返回的绝对偏移累加游标，避免 text[i..]（i 是序号不是字节偏移）
+            // 落在中文多字节字符中间导致 panic；同时避免 O(n²) 全串重扫。
+            if let Some(start) = text.find(&var_name) {
+                let abs_start = start + var_name.len();
                 if let Some(end) = text[abs_start..].find('"') {
                     let content = &text[abs_start..abs_start + end];
                     let parts: Vec<&str> = content.split(',').collect();

@@ -155,10 +155,8 @@ fn em_str(v: &Option<serde_json::Value>) -> String {
 
 impl EastmoneyFetcher {
     pub fn new() -> Self {
-        let client = Client::builder()
-            .user_agent("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)")
-            .build()
-            .expect("Failed to create HTTP client");
+        // 使用全仓共享 Client（连接池/超时统一管理）
+        let client = crate::headers::shared_client().clone();
         Self {
             client,
             tencent_breaker: SourceBreaker::new(),
@@ -172,10 +170,11 @@ impl EastmoneyFetcher {
     }
 
     fn now_ts() -> i64 {
+        // 时钟倒退（duration_since 失败）时回退 0，不要 panic
         SystemTime::now()
             .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_secs() as i64
+            .map(|d| d.as_secs() as i64)
+            .unwrap_or(0)
     }
 
     /// 请求东财 datacenter 报表并返回原始文本
@@ -1713,7 +1712,7 @@ impl DataFetcher for EastmoneyFetcher {
 
         let items: Vec<NorthBoundHoldings> = data.iter().map(|item| NorthBoundHoldings {
             date: item.hold_date.as_ref()
-                .map(|d| d[..10].to_string())
+                .map(|d| if d.len() >= 10 { d[..10].to_string() } else { d.to_string() })
                 .unwrap_or_default(),
             hold_market_cap: item.hold_market_cap,
             add_market_cap: item.add_market_cap,
@@ -1820,7 +1819,7 @@ impl DataFetcher for EastmoneyFetcher {
 
         let items: Vec<MarginTrading> = data.iter().map(|item| MarginTrading {
             date: item.dim_date.as_ref()
-                .map(|d| d[..10].to_string())
+                .map(|d| if d.len() >= 10 { d[..10].to_string() } else { d.to_string() })
                 .unwrap_or_default(),
             margin_balance: item.margin_balance,
             short_balance: item.short_balance,

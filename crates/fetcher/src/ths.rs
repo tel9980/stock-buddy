@@ -13,10 +13,8 @@ pub struct ThsFetcher {
 
 impl ThsFetcher {
     pub fn new() -> Self {
-        let client = Client::builder()
-            .user_agent("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36")
-            .build()
-            .expect("Failed to create HTTP client");
+        // 使用全仓共享 Client（连接池/超时统一管理）
+        let client = crate::headers::shared_client().clone();
         Self { client }
     }
 

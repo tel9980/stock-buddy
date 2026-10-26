@@ -3,8 +3,6 @@ pub mod jobs;
 pub mod routes;
 pub mod state;
 
-use std::collections::HashMap;
-
 use tracing_subscriber::fmt::format::FmtSpan;
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;

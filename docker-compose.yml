@@ -1,0 +1,15 @@
+services:
+  stock-buddy:
+    image: ghcr.io/tel9980/stock-buddy:latest
+    container_name: stock-buddy
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./data:/app/data
+    environment:
+      - TZ=Asia/Shanghai
+      - RUST_LOG=info
+      # AI 功能（可选）：
+      # - OPENAI_API_KEY=sk-xxx
+      # - OPENAI_BASE_URL=https://api.openai.com/v1

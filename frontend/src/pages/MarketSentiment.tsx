@@ -272,6 +272,11 @@ export default function MarketSentimentPage() {
   const botBoard: IndustryBoard | undefined = boards[boards.length - 1]
 
   // ── 龙虎榜 ──
+  // 预建 code→出现次数索引，替代 render 里的 O(n²) filter（每行渲染都全表扫）
+  const lhbCountByCode = new Map<string, number>()
+  for (const e of lhb.entries) {
+    lhbCountByCode.set(e.code, (lhbCountByCode.get(e.code) ?? 0) + 1)
+  }
   const lhbChart: BarDatum[] = lhb.entries.slice(0, 15).map((e) => ({
     name: e.name,
     value: e.net_amount,
@@ -290,7 +295,7 @@ export default function MarketSentimentPage() {
       render: (v: string, r: DragonTigerEntry) => (
         <span style={{ fontWeight: 600 }}>
           {v}
-          {lhb.entries.filter((x) => x.code === r.code).length > 1 && (
+          {(lhbCountByCode.get(r.code) ?? 0) > 1 && (
             <Tooltip title="该股触发多个上榜原因，东财返回多条记录">
               <sup style={{ color: 'var(--primary)', fontSize: 9, marginLeft: 2 }}>重</sup>
             </Tooltip>

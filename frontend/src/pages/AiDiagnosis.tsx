@@ -16,6 +16,10 @@ export default function AiDiagnosis() {
   const [activeTab, setActiveTab] = usePersistedState<AnalysisType>('ai.diagnosis.tab', 'diagnose');
   const scrollRef = useRef<HTMLDivElement>(null);
   const autoRunRef = useRef(false);
+  const abortRef = useRef<AbortController | null>(null);
+
+  // 组件卸载时中断进行中的流式请求
+  useEffect(() => () => abortRef.current?.abort(), []);
 
   useEffect(() => {
     api.getAiStatus().then(s => setAiConfigured(s.configured)).catch(() => {});
@@ -57,17 +61,28 @@ export default function AiDiagnosis() {
       setContent(prev => prev + text);
     };
 
+    // 新请求前中断旧流
+    abortRef.current?.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
+
     if (type === 'diagnose') {
       api.diagnoseStockStream(targetCode.trim(), onChunk, () => setLoading(false), (e) => {
         setError(e);
         setLoading(false);
-      });
+      }, controller.signal);
     } else {
       api.predictTrendStream(targetCode.trim(), onChunk, () => setLoading(false), (e) => {
         setError(e);
         setLoading(false);
-      });
+      }, controller.signal);
     }
+  };
+
+  const stopStream = () => {
+    abortRef.current?.abort();
+    abortRef.current = null;
+    setLoading(false);
   };
 
   return (
@@ -99,6 +114,18 @@ export default function AiDiagnosis() {
         >
           趋势预测
         </button>
+        {loading && (
+          <button
+            onClick={stopStream}
+            style={{
+              marginLeft: 'auto', padding: '6px 16px', borderRadius: '8px',
+              border: '1px solid rgba(244,67,54,0.5)', background: 'transparent',
+              color: '#f44336', fontSize: '13px', cursor: 'pointer',
+            }}
+          >
+            停止生成
+          </button>
+        )}
       </div>
 
       {!aiConfigured && (

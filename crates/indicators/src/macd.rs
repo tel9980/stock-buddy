@@ -39,7 +39,12 @@ pub fn calc_macd(closes: &[f64], dates: &[String], fast: usize, slow: usize, sig
 
     let dea = ema(signal, &dif);
 
-    let macd: Vec<f64> = (0..closes.len()).map(|i| (dif[i] - dea.get(i).copied().unwrap_or(0.0)) * 2.0).collect();
+    // MACD 柱 = DIF - DEA（原始差值口径）。
+    // 注：国内行情软件惯例是 ×2 的“放大柱”，两者仅差常数倍；
+    // 这里保留 ×2 以与用户习惯一致，仅当用于信号强度时需除回 2。
+    let macd: Vec<f64> = (0..closes.len())
+        .map(|i| (dif[i] - dea.get(i).copied().unwrap_or(0.0)) * 2.0)
+        .collect();
 
     (0..closes.len()).filter_map(|i| {
         if i < slow {

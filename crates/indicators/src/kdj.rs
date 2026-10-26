@@ -30,8 +30,9 @@ pub fn calc_kdj(highs: &[f64], lows: &[f64], closes: &[f64], dates: &[String], n
             ll = ll.min(lows[j]);
         }
 
-        let rsv = if hh == ll {
-            0.0
+        let rsv = if (hh - ll).abs() < f64::EPSILON {
+            // 一字板/无波动：RSV 取中性值 50，避免把中性日误判为超卖
+            50.0
         } else {
             (closes[i] - ll) / (hh - ll) * 100.0
         };

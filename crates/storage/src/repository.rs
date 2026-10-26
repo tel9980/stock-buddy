@@ -100,32 +100,8 @@ impl Repository {
     }
 
     // --- KLine ---
-
-    pub async fn save_klines(&self, klines: &[Kline]) -> Result<()> {
-        for k in klines {
-            sqlx::query(
-                "INSERT INTO kline_daily (stock_code, date, open, close, high, low, volume, amount, pct_change, turnover)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                 ON CONFLICT(stock_code, date) DO UPDATE SET
-                    open=excluded.open, close=excluded.close, high=excluded.high,
-                    low=excluded.low, volume=excluded.volume, amount=excluded.amount,
-                    pct_change=excluded.pct_change, turnover=excluded.turnover"
-            )
-            .bind(&k.stock_code)
-            .bind(&k.date)
-            .bind(k.open)
-            .bind(k.close)
-            .bind(k.high)
-            .bind(k.low)
-            .bind(k.volume)
-            .bind(k.amount)
-            .bind(k.pct_change)
-            .bind(k.turnover)
-            .execute(&self.pool)
-            .await?;
-        }
-        Ok(())
-    }
+    // （save_klines 已删除：全仓无调用者的死代码，且逐条 INSERT 无事务性能极差；
+    //   批量写入走下方 save_daily_bars 的多行 INSERT + 分块事务路径。）
 
     pub async fn get_klines(
         &self,

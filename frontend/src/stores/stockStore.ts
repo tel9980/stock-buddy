@@ -86,11 +86,18 @@ export const useStockStore = create<StockState>((set, get) => ({
     }
   },
   addStock: async (code) => {
-    await api.addToWatchlist(code);
+    const resp = await api.addToWatchlist(code);
+    if (!resp.ok) {
+      // 写失败必须抛出让调用方感知，不能静默成功
+      throw new Error(`加入自选失败: HTTP ${resp.status}`);
+    }
     await get().fetchWatchlist();
   },
   removeStock: async (code) => {
-    await api.removeFromWatchlist(code);
+    const resp = await api.removeFromWatchlist(code);
+    if (!resp.ok) {
+      throw new Error(`移出自选失败: HTTP ${resp.status}`);
+    }
     await get().fetchWatchlist();
   },
 

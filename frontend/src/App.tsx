@@ -1,20 +1,21 @@
 import { useEffect } from 'react'
 import { Routes, Route, NavLink } from 'react-router-dom'
-import Dashboard from './pages/Dashboard'
-import StockAnalysis from './pages/StockAnalysis'
-import AiDiagnosis from './pages/AiDiagnosis'
-import AiMarket from './pages/AiMarket'
-import AiChat from './pages/AiChat'
-import AiHistory from './pages/AiHistory'
-import CapitalFlow from './pages/CapitalFlow'
-import SectorHotspot from './pages/SectorHotspot'
-import LimitUpReview from './pages/LimitUpReview'
-import DragonTiger from './pages/DragonTiger'
-import FinancialAnalysis from './pages/FinancialAnalysis'
-import PriceChangeCalculator from './pages/PriceChangeCalculator'
-import TCostOptimizer from './pages/TCostOptimizer'
-import TBacktest from './pages/TBacktest'
-import MarketSentiment from './pages/MarketSentiment'
+import { lazy, Suspense } from 'react'
+const Dashboard = lazy(() => import('./pages/Dashboard'))
+const StockAnalysis = lazy(() => import('./pages/StockAnalysis'))
+const AiDiagnosis = lazy(() => import('./pages/AiDiagnosis'))
+const AiMarket = lazy(() => import('./pages/AiMarket'))
+const AiChat = lazy(() => import('./pages/AiChat'))
+const AiHistory = lazy(() => import('./pages/AiHistory'))
+const CapitalFlow = lazy(() => import('./pages/CapitalFlow'))
+const SectorHotspot = lazy(() => import('./pages/SectorHotspot'))
+const LimitUpReview = lazy(() => import('./pages/LimitUpReview'))
+const DragonTiger = lazy(() => import('./pages/DragonTiger'))
+const FinancialAnalysis = lazy(() => import('./pages/FinancialAnalysis'))
+const PriceChangeCalculator = lazy(() => import('./pages/PriceChangeCalculator'))
+const TCostOptimizer = lazy(() => import('./pages/TCostOptimizer'))
+const TBacktest = lazy(() => import('./pages/TBacktest'))
+const MarketSentiment = lazy(() => import('./pages/MarketSentiment'))
 import WatchlistMenu from './components/WatchlistMenu'
 import { useStockStore } from './stores/stockStore'
 import './index.css'
@@ -49,6 +50,7 @@ export default function App() {
         <WatchlistMenu />
       </header>
       <main className="app-content">
+        <Suspense fallback={<div style={{ textAlign: 'center', padding: 80 }}>加载中…</div>}>
         <Routes>
           <Route path="/" element={<Dashboard />} />
           <Route path="/stock" element={<StockAnalysis />} />
@@ -66,6 +68,7 @@ export default function App() {
           <Route path="/ai/chat" element={<AiChat />} />
           <Route path="/ai/history" element={<AiHistory />} />
         </Routes>
+        </Suspense>
       </main>
     </div>
   )

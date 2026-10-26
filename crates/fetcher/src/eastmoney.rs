@@ -12,10 +12,9 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use crate::traits::KlineStatus;
 
-// 注: 使用 push2delay 节点。push2/push2his 在本机 Clash fake-ip 环境下
-// 间歇性无法连接（解析到 198.18.0.25 保留段后连接黑洞），push2delay 稳定可用。
+// 单券行情走本常量；**列表类接口**（clist / ulist）统一走 crate::push2 的多节点
+// 切换，因为 push2 集群各节点可用性并不同步，且会在出口被风控时整体返回空响应。
 const EM_BASE: &str = "http://push2delay.eastmoney.com/api/qt/stock";
-const EM_LIST_BASE: &str = "http://push2delay.eastmoney.com/api/qt/clist";
 
 /// 分页抓取的并发度
 ///
@@ -154,6 +153,101 @@ fn em_str(v: &Option<serde_json::Value>) -> String {
 }
 
 impl EastmoneyFetcher {
+    /// 备选源：新浪行业/概念板块 → 映射成 `SectorRank`
+    ///
+    /// 新浪不给板块主力净流入，`net_amount` 只能留空（下游按 Option 处理）。
+    async fn fetch_sector_ranks_sina(&self, sector_type: &str) -> AppResult<Vec<SectorRank>> {
+        let boards = match sector_type {
+            "concept" => crate::sina_boards::fetch_concept_boards(&self.client).await?,
+            _ => crate::sina_boards::fetch_industry_boards(&self.client).await?,
+        };
+        tracing::info!(count = boards.len(), %sector_type, "板块涨幅榜改用新浪备选源");
+
+        let mut ranks: Vec<SectorRank> = boards
+            .into_iter()
+            .map(|b| SectorRank {
+                code: b.code,
+                name: b.name,
+                sector_type: sector_type.to_string(),
+                change_pct: b.change_pct,
+                leader_stock: b.leader_name,
+                leader_code: b.leader_code,
+                leader_pct: b.leader_pct,
+                net_amount: None,
+                // 新浪接口不提供板块成分股涨跌家数
+                up_count: None,
+                down_count: None,
+            })
+            .collect();
+        // 与东财口径一致：按涨跌幅降序
+        ranks.sort_by(|a, b| {
+            b.change_pct
+                .partial_cmp(&a.change_pct)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
+        Ok(ranks)
+    }
+
+    /// 东财主源实现（多节点）
+    async fn fetch_sector_ranks_em_inner(&self, sector_type: &str) -> AppResult<Vec<SectorRank>> {
+        // m:90+t:2 行业板块, m:90+t:3 概念板块
+        let fs = match sector_type {
+            "industry" => "m:90+t:2",
+            "concept" => "m:90+t:3",
+            _ => "m:90+t:2",
+        };
+
+        // f140 = 领涨股代码，别漏：少了它就只能拿 f128（名称）去当代码查财报
+        let path = format!(
+            "/api/qt/clist/get?pn=1&pz=100&po=1&np=1&fltt=2&invt=2&fid=f3&fs={}&fields=f12,f14,f3,f128,f140,f136,f62,f104,f105",
+            fs
+        );
+
+        tracing::debug!(%sector_type, "Fetching sector ranks via push2 nodes");
+
+        let body = crate::push2::get_text_any_node(&self.client, &path).await?;
+        let resp: EmListResponse = serde_json::from_str(&body)?;
+
+        let items = resp
+            .data
+            .and_then(|d| d.diff)
+            .unwrap_or_default();
+
+        let ranks: Vec<SectorRank> = items
+            .iter()
+            .map(|item| SectorRank {
+                code: item.code.clone(),
+                name: item.name.clone(),
+                sector_type: sector_type.to_string(),
+                change_pct: item.change_pct,
+                leader_stock: if item.leader_stock.is_empty() {
+                    None
+                } else {
+                    Some(item.leader_stock.clone())
+                },
+                leader_code: if item.leader_code.is_empty() {
+                    None
+                } else {
+                    Some(item.leader_code.clone())
+                },
+                leader_pct: if item.leader_pct != 0.0 {
+                    Some(item.leader_pct)
+                } else {
+                    None
+                },
+                net_amount: if item.net_amount != 0.0 {
+                    Some(item.net_amount)
+                } else {
+                    None
+                },
+                up_count: Some(item.up_count),
+                down_count: Some(item.down_count),
+            })
+            .collect();
+
+        Ok(ranks)
+    }
+
     pub fn new() -> Self {
         // 使用全仓共享 Client（连接池/超时统一管理）
         let client = crate::headers::shared_client().clone();
@@ -182,9 +276,12 @@ impl EastmoneyFetcher {
     /// datacenter 会返回 `Content-Encoding: gzip` 的响应体（且并非合法 gzip），
     /// 直接 `.json()` 会报 "error decoding response body"。强制 identity 并在本地解析。
     async fn datacenter_text(&self, url: &str) -> AppResult<String> {
+        // 源码里用 `\` 续行拼接的长 URL 会带上缩进空白；HTTP 容忍，但日志/错误信息里
+        // 一大串空格很难读，这里统一压成单空格（datacenter 的 query 不含空格）。
+        let url = url.split_whitespace().collect::<Vec<_>>().join(" ");
         let text = self
             .client
-            .get(url)
+            .get(&url)
             .header(reqwest::header::ACCEPT_ENCODING, "identity")
             .send()
             .await?
@@ -312,14 +409,53 @@ impl EastmoneyFetcher {
 
     /// 板块实时快照
     ///
-    /// 来自 `push2delay` 的板块列表接口。这是目前**唯一能同时取到官方涨跌幅、成交额、
-    /// 涨跌家数与领涨股**的通道，且一次分页只有个位数请求量。
+    /// 来自东财 `push2` 集群的板块列表接口（多节点自动切换，见 [`crate::push2`]）。
+    /// 这是目前**唯一能同时取到官方涨跌幅、成交额、涨跌家数与领涨股**的通道。
     ///
     /// **只有最新交易日的快照，没有历史数据。** 东财历史 K 线节点 `push2his`（含所有
-    /// 编号子域）在本机不可达，`push2delay` 又完全不提供 K 线，所以历史交易日只能
+    /// 编号子域）在本机不可达，`push2` 集群又完全不提供 K 线，所以历史交易日只能
     /// 回落到成分股日线等权聚合。调用方必须先用 `fetch_latest_trade_date` 做日期守卫，
     /// 否则盘中查询会拿到尚未收盘的当日快照。
+    ///
+    /// 东财整段不可达时（出口被风控，返回空响应）自动回落到新浪板块接口：
+    /// 涨跌幅 / 成交额 / 领涨股口径一致，但**没有成分股涨跌家数**（填 0）。
     pub async fn fetch_board_snapshots(&self) -> AppResult<Vec<BoardSnapshot>> {
+        // 集群处于静默期时不必再试，省一轮必然失败的请求
+        if !crate::push2::is_quiet() {
+            match self.fetch_board_snapshots_em().await {
+                Ok(v) if !v.is_empty() => return Ok(v),
+                Ok(_) => tracing::debug!("东财板块快照返回空表，改用备选源"),
+                Err(e) => tracing::debug!(error = %e, "东财板块快照失败，改用备选源"),
+            }
+        }
+        self.fetch_board_snapshots_sina().await
+    }
+
+    /// 备选源：新浪行业板块 → 映射成 `BoardSnapshot`
+    async fn fetch_board_snapshots_sina(&self) -> AppResult<Vec<BoardSnapshot>> {
+        let boards = crate::sina_boards::fetch_industry_boards(&self.client).await?;
+        tracing::info!(count = boards.len(), "板块快照改用新浪备选源");
+        Ok(boards
+            .into_iter()
+            .map(|b| BoardSnapshot {
+                name: b.name,
+                bk_code: b.code,
+                change_pct: b.change_pct,
+                // 项目口径是万元，新浪给的是元
+                amount: b.amount_yuan / 10_000.0,
+                // 新浪不给涨跌家数，只能置 0（下游不做强校验）
+                up_count: 0,
+                down_count: 0,
+                flat_count: 0,
+                leader: b.leader_name,
+                leader_code: b.leader_code,
+                leader_pct: b.leader_pct.unwrap_or(0.0),
+            })
+            .collect())
+    }
+
+    /// 东财主源实现（多节点）
+    async fn fetch_board_snapshots_em(&self) -> AppResult<Vec<BoardSnapshot>> {
         #[derive(Deserialize)]
         struct Resp {
             data: Option<Data>,
@@ -360,17 +496,18 @@ impl EastmoneyFetcher {
         const PAGE_SIZE: u32 = 100;
         const MAX_PAGES: u32 = 10;
 
-        let url_of = |page: u32| {
+        let path_of = |page: u32| {
             format!(
-                "{}/get?pn={}&pz={}&po=1&np=1&fltt=2&invt=2&fid=f3&fs=m:90+t:2&\
-                 fields=f3,f6,f12,f14,f104,f105,f106,f128,f140,f136",
-                EM_LIST_BASE, page, PAGE_SIZE
+                "/api/qt/clist/get?pn={}&pz={}&po=1&np=1&fltt=2&invt=2&fid=f3&fs=m:90+t:2&\
+fields=f3,f6,f12,f14,f104,f105,f106,f128,f140,f136",
+                page, PAGE_SIZE
             )
         };
 
         // 首页单独抓：响应里的 `total` 告诉我们一共有多少页，后面才能一次并发补完。
+        // 走 push2 多节点切换：单域名挂掉不影响整块功能。
         let first: Resp = serde_json::from_str(
-            &self.client.get(&url_of(1)).send().await?.text().await?,
+            &crate::push2::get_text_any_node(&self.client, &path_of(1)).await?,
         )?;
         // 拆开用：total 决定还要抓几页，diff 是首页数据，两者都不再需要整体持有
         let Data { total, diff } = match first.data {
@@ -386,10 +523,10 @@ impl EastmoneyFetcher {
 
         let mut pages_of_items: Vec<Vec<Item>> = vec![diff.unwrap_or_default()];
         if pages > 1 {
-            let urls: Vec<String> = (2..=pages).map(url_of).collect();
-            for body in fetch_pages_concurrent(urls, |url| {
+            let paths: Vec<String> = (2..=pages).map(path_of).collect();
+            for body in fetch_pages_concurrent(paths, |path| {
                 let client = &self.client;
-                async move { Ok(client.get(&url).send().await?.text().await?) }
+                async move { crate::push2::get_text_any_node(client, &path).await }
             })
             .await?
             {
@@ -1297,67 +1434,15 @@ impl DataFetcher for EastmoneyFetcher {
     }
 
     async fn fetch_sector_ranks(&self, sector_type: &str) -> AppResult<Vec<SectorRank>> {
-        // m:90+t:2 行业板块, m:90+t:3 概念板块
-        let fs = match sector_type {
-            "industry" => "m:90+t:2",
-            "concept" => "m:90+t:3",
-            _ => "m:90+t:2",
-        };
-
-        // f140 = 领涨股代码，别漏：少了它就只能拿 f128（名称）去当代码查财报
-        let url = format!(
-            "{}/get?pn=1&pz=100&po=1&np=1&fltt=2&invt=2&fid=f3&fs={}&fields=f12,f14,f3,f128,f140,f136,f62,f104,f105",
-            EM_LIST_BASE, fs
-        );
-
-        tracing::debug!("Fetching sector ranks: {}", url);
-
-        let resp: EmListResponse = self
-            .client
-            .get(&url)
-            .send()
-            .await?
-            .json()
-            .await?;
-
-        let items = resp
-            .data
-            .and_then(|d| d.diff)
-            .unwrap_or_default();
-
-        let ranks: Vec<SectorRank> = items
-            .iter()
-            .map(|item| SectorRank {
-                code: item.code.clone(),
-                name: item.name.clone(),
-                sector_type: sector_type.to_string(),
-                change_pct: item.change_pct,
-                leader_stock: if item.leader_stock.is_empty() {
-                    None
-                } else {
-                    Some(item.leader_stock.clone())
-                },
-                leader_code: if item.leader_code.is_empty() {
-                    None
-                } else {
-                    Some(item.leader_code.clone())
-                },
-                leader_pct: if item.leader_pct != 0.0 {
-                    Some(item.leader_pct)
-                } else {
-                    None
-                },
-                net_amount: if item.net_amount != 0.0 {
-                    Some(item.net_amount)
-                } else {
-                    None
-                },
-                up_count: Some(item.up_count),
-                down_count: Some(item.down_count),
-            })
-            .collect();
-
-        Ok(ranks)
+        // 东财整段不可达时直接走新浪备选源，省一轮必然失败的请求
+        if !crate::push2::is_quiet() {
+            match self.fetch_sector_ranks_em_inner(sector_type).await {
+                Ok(v) if !v.is_empty() => return Ok(v),
+                Ok(_) => tracing::debug!(%sector_type, "东财板块涨幅榜空表，改用备选源"),
+                Err(e) => tracing::debug!(%sector_type, error = %e, "东财板块涨幅榜失败，改用备选源"),
+            }
+        }
+        self.fetch_sector_ranks_sina(sector_type).await
     }
 
     async fn fetch_sector_stocks(&self, sector_code: &str, page: u32, page_size: u32) -> AppResult<(Vec<SectorStock>, u32)> {
@@ -1366,12 +1451,13 @@ impl DataFetcher for EastmoneyFetcher {
         let pn = page.max(1);
         let pz = page_size.max(1).min(100);
 
-        let url = format!(
-            "{}/get?pn={}&pz={}&po=1&np=1&fltt=2&invt=2&fid=f3&fs={}&fields=f12,f14,f2,f3,f4,f5,f6,f7,f15,f16,f17,f18",
-            EM_LIST_BASE, pn, pz, fs
+        let path = format!(
+            "/api/qt/clist/get?pn={}&pz={}&po=1&np=1&fltt=2&invt=2&fid=f3&fs={}\
+&fields=f12,f14,f2,f3,f4,f5,f6,f7,f15,f16,f17,f18",
+            pn, pz, fs
         );
 
-        tracing::debug!("Fetching sector stocks: {}", url);
+        tracing::debug!(page = pn, size = pz, "Fetching sector stocks via push2 nodes");
 
         #[derive(Deserialize)]
         struct EmStockListResponse {
@@ -1410,13 +1496,8 @@ impl DataFetcher for EastmoneyFetcher {
             pre_close: f64,
         }
 
-        let resp: EmStockListResponse = self
-            .client
-            .get(&url)
-            .send()
-            .await?
-            .json()
-            .await?;
+        let body = crate::push2::get_text_any_node(&self.client, &path).await?;
+        let resp: EmStockListResponse = serde_json::from_str(&body)?;
 
         let data = resp.data.ok_or_else(|| {
             AppError::NotFound(format!("Sector stocks not found for: {}", sector_code))
@@ -1544,12 +1625,17 @@ impl DataFetcher for EastmoneyFetcher {
         // f62=主力净流入, f184=主力净占比, f66=超大单净额, f69=超大单占比,
         // f72=大单净额, f75=大单占比, f78=中单净额, f81=中单占比,
         // f84=小单净额, f87=小单占比
-        let url = format!(
-            "{}/get?pn=1&pz=50&po=1&np=1&fltt=2&invt=2&fid=f62&fs=m:90+t:2&fields=f12,f14,f3,f62,f184,f66,f69,f72,f75,f78,f81,f84,f87",
-            EM_LIST_BASE
-        );
+        let path = "/api/qt/clist/get?pn=1&pz=50&po=1&np=1&fltt=2&invt=2&fid=f62&fs=m:90+t:2\
+&fields=f12,f14,f3,f62,f184,f66,f69,f72,f75,f78,f81,f84,f87";
 
-        tracing::debug!("Fetching sector capital flows: {}", url);
+        // 集群静默期内直接返回空表：新浪备选源不提供板块资金分档数据，
+        // 与其返回半真半假的数据，不如让上层明确显示「暂无数据」。
+        if crate::push2::is_quiet() {
+            tracing::debug!("东财集群不可达，板块资金流暂不可用（备选源无此数据）");
+            return Ok(Vec::new());
+        }
+
+        tracing::debug!("Fetching sector capital flows via push2 nodes");
 
         /// 板块资金流条目
         ///
@@ -1583,7 +1669,21 @@ impl DataFetcher for EastmoneyFetcher {
             diff: Option<Vec<SectorFlowItem>>,
         }
 
-        let resp: EmResponse<SectorFlowListData> = self.client.get(&url).send().await?.json().await?;
+        let body = match crate::push2::get_text_any_node(&self.client, path).await {
+            Ok(b) => b,
+            Err(e) => {
+                // 备用源没有这份数据，降级成空表而不是 500，页面显示「暂无数据」
+                tracing::debug!(error = %e, "板块资金流主源不可达，返回空表");
+                return Ok(Vec::new());
+            }
+        };
+        let resp: EmResponse<SectorFlowListData> = match serde_json::from_str(&body) {
+            Ok(r) => r,
+            Err(e) => {
+                tracing::warn!(error = %e, "板块资金流响应解析失败，返回空表");
+                return Ok(Vec::new());
+            }
+        };
         let items = resp.data.and_then(|d| d.diff).unwrap_or_default();
 
         let flows: Vec<SectorCapitalFlow> = items.iter().map(|item| SectorCapitalFlow {
@@ -1725,9 +1825,10 @@ impl DataFetcher for EastmoneyFetcher {
     async fn fetch_market_capital_flow(&self) -> AppResult<MarketCapitalFlow> {
         // 沪深两市主力资金 = 上证指数(1.000001) + 深证成指(0.399001)
         // f62=主力净流入, f66=超大单, f72=大单, f78=中单, f84=小单（单位：元）
-        let url = "http://push2delay.eastmoney.com/api/qt/ulist.np/get?fltt=2&secids=1.000001,0.399001&fields=f12,f14,f62,f66,f72,f78,f84";
+        let path = "/api/qt/ulist.np/get?fltt=2&secids=1.000001,0.399001\
+&fields=f12,f14,f62,f66,f72,f78,f84";
 
-        tracing::debug!("Fetching market capital flow: {}", url);
+        tracing::debug!("Fetching market capital flow via push2 nodes");
 
         #[derive(Deserialize)]
         struct FlowResp {
@@ -1751,7 +1852,8 @@ impl DataFetcher for EastmoneyFetcher {
             small_net_inflow: f64,
         }
 
-        let resp: FlowResp = self.client.get(url).send().await?.json().await?;
+        let body = crate::push2::get_text_any_node(&self.client, path).await?;
+        let resp: FlowResp = serde_json::from_str(&body)?;
         let items = resp.data.and_then(|d| d.diff).unwrap_or_default();
 
         let mut total = MarketCapitalFlow {
@@ -1838,14 +1940,14 @@ impl DataFetcher for EastmoneyFetcher {
     // ============ Phase 4: 涨停复盘 ============
 
     async fn fetch_limit_ups(&self) -> AppResult<Vec<LimitUpStock>> {
-        let url = format!(
-            "{}/get?pn=1&pz=200&po=1&np=1&fltt=2&invt=2&fid=f3&fs=m:0+t:6,m:0+t:80,m:1+t:2,m:1+t:23&fields=f2,f3,f4,f5,f6,f7,f8,f9,f10,f12,f14,f15,f16,f17,f18,f20,f21,f22,f23,f62,f100,f184",
-            EM_LIST_BASE
-        );
+        let path = "/api/qt/clist/get?pn=1&pz=200&po=1&np=1&fltt=2&invt=2&fid=f3\
+&fs=m:0+t:6,m:0+t:80,m:1+t:2,m:1+t:23\
+&fields=f2,f3,f4,f5,f6,f7,f8,f9,f10,f12,f14,f15,f16,f17,f18,f20,f21,f22,f23,f62,f100,f184";
 
-        tracing::debug!("Fetching limit ups: {}", url);
+        tracing::debug!("Fetching limit ups via push2 nodes");
 
-        let resp: EmListResponse = self.client.get(&url).send().await?.json().await?;
+        let body = crate::push2::get_text_any_node(&self.client, path).await?;
+        let resp: EmListResponse = serde_json::from_str(&body)?;
         let items = resp.data.and_then(|d| d.diff).unwrap_or_default();
 
         // Filter limit-up stocks (pct_change >= ~9.5%)
@@ -1877,14 +1979,14 @@ impl DataFetcher for EastmoneyFetcher {
     }
 
     async fn fetch_limit_downs(&self) -> AppResult<Vec<LimitDownStock>> {
-        let url = format!(
-            "{}/get?pn=1&pz=200&po=1&np=1&fltt=2&invt=2&fid=f3&fs=m:0+t:6,m:0+t:80,m:1+t:2,m:1+t:23&fields=f2,f3,f4,f5,f6,f7,f8,f9,f10,f12,f14,f15,f16,f17,f18,f20,f21,f62,f100",
-            EM_LIST_BASE
-        );
+        let path = "/api/qt/clist/get?pn=1&pz=200&po=1&np=1&fltt=2&invt=2&fid=f3\
+&fs=m:0+t:6,m:0+t:80,m:1+t:2,m:1+t:23\
+&fields=f2,f3,f4,f5,f6,f7,f8,f9,f10,f12,f14,f15,f16,f17,f18,f20,f21,f62,f100";
 
-        tracing::debug!("Fetching limit downs: {}", url);
+        tracing::debug!("Fetching limit downs via push2 nodes");
 
-        let resp: EmListResponse = self.client.get(&url).send().await?.json().await?;
+        let body = crate::push2::get_text_any_node(&self.client, path).await?;
+        let resp: EmListResponse = serde_json::from_str(&body)?;
         let items = resp.data.and_then(|d| d.diff).unwrap_or_default();
 
         let limit_downs: Vec<LimitDownStock> = items.iter().filter_map(|item| {
@@ -1907,14 +2009,14 @@ impl DataFetcher for EastmoneyFetcher {
 
     async fn fetch_broken_boards(&self) -> AppResult<Vec<BrokenBoardStock>> {
         // 炸板股: 振幅较大且最高涨幅达到涨停但收盘未封板
-        let url = format!(
-            "{}/get?pn=1&pz=200&po=1&np=1&fltt=2&invt=2&fid=f7&fs=m:0+t:6,m:0+t:80,m:1+t:2,m:1+t:23&fields=f2,f3,f4,f5,f6,f7,f8,f9,f10,f12,f14,f15,f16,f17,f18,f20,f21",
-            EM_LIST_BASE
-        );
+        let path = "/api/qt/clist/get?pn=1&pz=200&po=1&np=1&fltt=2&invt=2&fid=f7\
+&fs=m:0+t:6,m:0+t:80,m:1+t:2,m:1+t:23\
+&fields=f2,f3,f4,f5,f6,f7,f8,f9,f10,f12,f14,f15,f16,f17,f18,f20,f21";
 
-        tracing::debug!("Fetching broken boards: {}", url);
+        tracing::debug!("Fetching broken boards via push2 nodes");
 
-        let resp: EmListResponse = self.client.get(&url).send().await?.json().await?;
+        let body = crate::push2::get_text_any_node(&self.client, path).await?;
+        let resp: EmListResponse = serde_json::from_str(&body)?;
         let items = resp.data.and_then(|d| d.diff).unwrap_or_default();
 
         // 炸板判断: 涨跌幅在5~9.5%之间且振幅大于8%
@@ -2270,19 +2372,9 @@ impl DataFetcher for EastmoneyFetcher {
 impl EastmoneyFetcher {
     /// 获取沪深A股涨跌家数
     async fn fetch_up_down_count(&self) -> AppResult<(u32, u32, u32)> {
-        // 沪市
-        let _sh_url = format!(
-            "{}/get?pn=1&pz=1&po=1&np=1&fltt=2&invt=2&fid=f3&fs=m:1+t:2&fields=f3",
-            EM_LIST_BASE
-        );
-        // 深市
-        let _sz_url = format!(
-            "{}/get?pn=1&pz=1&po=1&np=1&fltt=2&invt=2&fid=f3&fs=m:0+t:6,m:0+t:80,m:1+t:2,m:0+t:81+s:2048&fields=f3",
-            EM_LIST_BASE
-        );
-
-        // 用总览接口获取涨跌家数
-        let overview_url = "http://push2delay.eastmoney.com/api/qt/ulist.np/get?fields=f1,f2,f3,f4,f6,f12,f13,f104,f105,f106&secids=1.000001,0.399001";
+        // 涨幅榜的沪/深分页 URL 早年写过但从未被使用（涨跌家数改走下面的总览接口），
+        // 这里不再保留死代码，避免 url 变量名让读者以为还有第二路数据源。
+        let overview_path = "/api/qt/ulist.np/get?                             fields=f1,f2,f3,f4,f6,f12,f13,f104,f105,f106&secids=1.000001,0.399001";
 
         #[derive(Deserialize)]
         struct OverviewResp {
@@ -2302,13 +2394,8 @@ impl EastmoneyFetcher {
             flat_count: u32,
         }
 
-        let resp: OverviewResp = self
-            .client
-            .get(overview_url)
-            .send()
-            .await?
-            .json()
-            .await?;
+        let body = crate::push2::get_text_any_node(&self.client, overview_path).await?;
+        let resp: OverviewResp = serde_json::from_str(&body)?;
 
         if let Some(data) = resp.data {
             if let Some(diff) = data.diff {

@@ -56,6 +56,11 @@ fn browser_headers(referer: &str) -> reqwest::header::HeaderMap {
     h
 }
 
+/// 供 crate 内其他模块复用同一套反屏蔽请求头。
+pub(crate) fn browser_headers_pub(referer: &str) -> reqwest::header::HeaderMap {
+    browser_headers(referer)
+}
+
 /// 新浪 hq 接口响应体是 GBK 编码，按字节解码而非按 UTF-8 文本读。
 async fn gbk_text(resp: reqwest::Response) -> AppResult<String> {
     let bytes = resp.bytes().await?;

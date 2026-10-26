@@ -3,6 +3,8 @@ pub mod breaker;
 pub mod eastmoney;
 pub mod sina;
 pub mod ths;
+pub mod push2;
+pub mod sina_boards;
 pub mod market_clock;
 pub mod headers;
 

@@ -447,7 +447,8 @@ pub(crate) async fn build_daily(
     let (boards, bars, fast_amount, board_method, fetch_stats) =
         match try_fast_path(&em, &member_counts, industry_universe.as_ref(), date).await {
             Some((b, bars, amount)) => {
-                sources.push("东方财富 · 行业板块快照 push2delay clist".to_string());
+                // 板块快照可能来自东财 push2 集群，也可能在集群不可达时回落新浪
+                sources.push("行业板块快照（东财 push2 多节点，不可达时回落新浪）".to_string());
                 sources.push("东方财富 · 全市场个股快表 RPT_DMSK_TS_STOCKNEW".to_string());
                 notes.push(format!(
                     "行业涨跌幅为东财板块官方口径，市场宽度覆盖 {} 只沪深个股；\

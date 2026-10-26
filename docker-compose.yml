@@ -10,6 +10,9 @@ services:
     environment:
       - TZ=Asia/Shanghai
       - RUST_LOG=info
+      # 同花顺金融数据 API（可选）：涨停/跌停/炸板池与龙虎榜的优先源。
+      # 不填则自动跳过，功能照常走东财+新浪。
+      - FUYAO_API_KEY=${FUYAO_API_KEY:-}
     # 性能：限制资源避免异常抓取打爆宿主（按需调整/注释）
     logging:
       driver: json-file
@@ -17,6 +20,9 @@ services:
         max-size: "10m"
         max-file: "3"
 
+# 同花顺数据 API 的 key 也可以写在同目录 .env 里（FUYAO_API_KEY=sk-fuyao-...），
+# 由上面的 ${FUYAO_API_KEY:-} 传进容器；不写就用东财/新浪。
+#
 # AI 的 API Key / Base URL / 模型不再需要在这里配置：
 # 启动后打开页面 → 右上角「设置」→ 填写并保存即可，配置持久化在 ./data/ai-config.json，
 # 重启容器不会丢失。

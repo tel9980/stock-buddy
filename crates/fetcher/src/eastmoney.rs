@@ -128,6 +128,12 @@ enum TencentOutcome {
 pub struct EastmoneyFetcher {
     client: Client,
     tencent_breaker: SourceBreaker,
+    /// 涨停复盘/龙虎榜的第三路源（同花顺 fuyao）。
+    ///
+    /// 东财 push2 集群一旦被风控，涨停池/炸板池/龙虎榜会同时空白；新浪没有
+    /// 这几块数据，所以单独挂一路。未配 `FUYAO_API_KEY` 时本字段仍在但
+    /// `is_configured()` 为 false，调用处会跳过。
+    fuyao: crate::fuyao::FuyaoFetcher,
 }
 
 /// 东财 JSON 字段取数值（兼容数字与字符串两种形态）
@@ -254,7 +260,14 @@ impl EastmoneyFetcher {
         Self {
             client,
             tencent_breaker: SourceBreaker::new(),
+            fuyao: crate::fuyao::FuyaoFetcher::new(),
         }
+    }
+
+    /// 用指定同花顺 key 构造（免环境变量，测试/多租户用）
+    pub fn with_fuyao_key(mut self, key: impl Into<String>) -> Self {
+        self.fuyao = crate::fuyao::FuyaoFetcher::with_api_key(key);
+        self
     }
 
     /// 构造 secid (市场前缀 + 代码)
@@ -1946,6 +1959,21 @@ impl DataFetcher for EastmoneyFetcher {
 
         tracing::debug!("Fetching limit ups via push2 nodes");
 
+        // 东财涨停池只有「涨跌幅」一个信号，连板天数恒 1、封单额恒 0，
+        // 且 9.5% 阈值对创业板/科创(20%)、北交所(30%)、ST(5%) 全错。
+        // 这里是本项目数据质量最差的一处，故**优先**用同花顺：
+        // 它按真实板块规则判定，并直接给连板天数/封单额/涨停时间/涨停原因。
+        if self.fuyao.is_configured() {
+            match self.fuyao.fetch_limit_ups().await {
+                Ok(v) if !v.is_empty() => {
+                    tracing::info!(count = v.len(), "涨停池走同花顺源");
+                    return Ok(v);
+                }
+                Ok(_) => tracing::warn!("同花顺涨停池返回空，回落东财"),
+                Err(e) => tracing::warn!(error = %e, "同花顺涨停池失败，回落东财"),
+            }
+        }
+
         let body = crate::push2::get_text_any_node(&self.client, path).await?;
         let resp: EmListResponse = serde_json::from_str(&body)?;
         let items = resp.data.and_then(|d| d.diff).unwrap_or_default();
@@ -1985,6 +2013,17 @@ impl DataFetcher for EastmoneyFetcher {
 
         tracing::debug!("Fetching limit downs via push2 nodes");
 
+        if self.fuyao.is_configured() {
+            match self.fuyao.fetch_limit_downs().await {
+                Ok(v) if !v.is_empty() => {
+                    tracing::info!(count = v.len(), "跌停池走同花顺源");
+                    return Ok(v);
+                }
+                Ok(_) => tracing::warn!("同花顺跌停池返回空，回落东财"),
+                Err(e) => tracing::warn!(error = %e, "同花顺跌停池失败，回落东财"),
+            }
+        }
+
         let body = crate::push2::get_text_any_node(&self.client, path).await?;
         let resp: EmListResponse = serde_json::from_str(&body)?;
         let items = resp.data.and_then(|d| d.diff).unwrap_or_default();
@@ -2014,6 +2053,19 @@ impl DataFetcher for EastmoneyFetcher {
 &fields=f2,f3,f4,f5,f6,f7,f8,f9,f10,f12,f14,f15,f16,f17,f18,f20,f21";
 
         tracing::debug!("Fetching broken boards via push2 nodes");
+
+        // 东财没有炸板集合，只能用「涨幅 5~9.5%」冒充，把正常上涨的票也算进去。
+        // 同花顺有真实炸板池（含开板次数、换手率），优先用它。
+        if self.fuyao.is_configured() {
+            match self.fuyao.fetch_broken_boards().await {
+                Ok(v) if !v.is_empty() => {
+                    tracing::info!(count = v.len(), "炸板池走同花顺源");
+                    return Ok(v);
+                }
+                Ok(_) => tracing::warn!("同花顺炸板池返回空，回落东财"),
+                Err(e) => tracing::warn!(error = %e, "同花顺炸板池失败，回落东财"),
+            }
+        }
 
         let body = crate::push2::get_text_any_node(&self.client, path).await?;
         let resp: EmListResponse = serde_json::from_str(&body)?;
@@ -2128,6 +2180,20 @@ impl DataFetcher for EastmoneyFetcher {
         );
 
         tracing::debug!("Fetching dragon tiger: {}", url);
+
+        // 同花顺优先：东财 datacenter 这条报表链在前面的实测里反复 500/空，
+        // 而同花顺龙虎榜带净买入、机构净买入、人气排名，字段更齐。
+        if self.fuyao.is_configured() {
+            let d = if trade_date.is_empty() { None } else { Some(trade_date.as_str()) };
+            match self.fuyao.fetch_dragon_tiger(d).await {
+                Ok(v) if !v.is_empty() => {
+                    tracing::info!(count = v.len(), "龙虎榜走同花顺源");
+                    return Ok(v);
+                }
+                Ok(_) => tracing::warn!("同花顺龙虎榜返回空，回落东财"),
+                Err(e) => tracing::warn!(error = %e, "同花顺龙虎榜失败，回落东财"),
+            }
+        }
 
         #[derive(Deserialize)]
         struct DtResp {

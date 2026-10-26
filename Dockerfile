@@ -12,13 +12,15 @@ WORKDIR /build
 RUN apt-get update && apt-get install -y pkg-config libssl-dev && rm -rf /var/lib/apt/lists/*
 COPY Cargo.toml Cargo.lock* ./
 COPY crates ./crates
+COPY migrations ./migrations
 RUN cargo build --release
 
 # ── 运行时 ──
 FROM debian:bookworm-slim
 RUN apt-get update && apt-get install -y ca-certificates libssl3 && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
-COPY --from=backend /build/target/release/stock-buddy-api ./stock-buddy-api
+COPY --from=backend /build/target/release/stock-buddy ./stock-buddy
+COPY --from=backend /build/migrations ./migrations
 COPY --from=frontend /app/frontend/dist ./static
 ENV LISTEN_ADDR=0.0.0.0:8080 \
     DB_PATH=/app/data/stock.db \

@@ -3,12 +3,15 @@ use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 
 use analyzer::AiService;
+use crate::ai_config::AiConfigStore;
 
 pub struct AppState {
     pub listen_addr: String,
     pub fetcher: Arc<dyn fetcher::DataFetcher>,
     pub db: storage::Database,
     pub ai: Arc<AiService>,
+    /// AI 配置存储（页面可编辑，落盘 data/ai-config.json，热生效）
+    pub ai_config: Arc<AiConfigStore>,
     /// 导出件留存目录（情绪日报 HTML 等）
     pub report_dir: PathBuf,
     /// 正在生成日报的日期 → 引用计数
@@ -29,12 +32,14 @@ impl AppState {
         db: storage::Database,
         ai: AiService,
         report_dir: PathBuf,
+        ai_config: Arc<AiConfigStore>,
     ) -> Self {
         Self {
             listen_addr,
             fetcher,
             db,
             ai: Arc::new(ai),
+            ai_config,
             report_dir,
             in_flight: Mutex::new(HashMap::new()),
         }

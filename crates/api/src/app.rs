@@ -26,12 +26,38 @@ pub async fn create_app() -> anyhow::Result<App> {
 
     let db = storage::Database::new(&db_path).await?;
     let fetcher = Arc::new(fetcher::EastmoneyFetcher::new());
+
+    // AI 配置：优先读 data/ai-config.json（页面保存的），其次环境变量。
+    // 加载后立刻用它构造 LLM 客户端，保证首启就能用页面里存过的 key。
+    let data_dir = std::path::Path::new(&db_path)
+        .parent()
+        .map(|p| p.to_path_buf())
+        .unwrap_or_else(|| std::path::PathBuf::from("data"));
+    let ai_config = Arc::new(crate::ai_config::AiConfigStore::load(&data_dir));
+    let ai_settings = ai_config.get();
     let ai_service = analyzer::AiService::new(
-        analyzer::ai::LlmClient::from_env(),
+        analyzer::ai::LlmClient::new(analyzer::ai::LlmConfig {
+            api_key: ai_settings.api_key,
+            base_url: ai_settings.base_url,
+            model: ai_settings.model,
+            ..Default::default()
+        }),
         fetcher.clone(),
     );
+    if ai_config.is_configured() {
+        tracing::info!("AI 已配置（来源: {}）", data_dir.join("ai-config.json").display());
+    } else {
+        tracing::info!("AI 未配置，可在页面上设置 API Key");
+    }
 
-    let state = Arc::new(AppState::new(listen_addr, fetcher.clone(), db, ai_service, report_dir));
+    let state = Arc::new(AppState::new(
+        listen_addr,
+        fetcher.clone(),
+        db,
+        ai_service,
+        report_dir,
+        ai_config,
+    ));
 
     // 收盘后自动归档。默认关闭：它会在后台周期性访问行情源，不该在没人知道的
     // 情况下自作主张跑起来。

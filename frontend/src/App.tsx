@@ -16,6 +16,7 @@ const PriceChangeCalculator = lazy(() => import('./pages/PriceChangeCalculator')
 const TCostOptimizer = lazy(() => import('./pages/TCostOptimizer'))
 const TBacktest = lazy(() => import('./pages/TBacktest'))
 const MarketSentiment = lazy(() => import('./pages/MarketSentiment'))
+const Settings = lazy(() => import('./pages/Settings'))
 import WatchlistMenu from './components/WatchlistMenu'
 import { useStockStore } from './stores/stockStore'
 import './index.css'
@@ -46,6 +47,7 @@ export default function App() {
           <NavLink to="/ai/market">AI 研判</NavLink>
           <NavLink to="/ai/chat">AI 问答</NavLink>
           <NavLink to="/ai/history">AI 历史</NavLink>
+          <NavLink to="/settings">设置</NavLink>
         </nav>
         <WatchlistMenu />
       </header>
@@ -67,6 +69,7 @@ export default function App() {
           <Route path="/ai/market" element={<AiMarket />} />
           <Route path="/ai/chat" element={<AiChat />} />
           <Route path="/ai/history" element={<AiHistory />} />
+          <Route path="/settings" element={<Settings />} />
         </Routes>
         </Suspense>
       </main>

@@ -1055,6 +1055,30 @@ export const api = {
   getAiStatus: () =>
     request<{ configured: boolean; model: string }>(`${API_BASE}/ai/status`),
 
+  /** 读取 AI 配置（api_key 为打码值） */
+  getAiConfig: () =>
+    request<{ api_key: string; base_url: string; model: string }>(`${API_BASE}/ai/config`),
+
+  /** 保存 AI 配置，后端立即热生效 */
+  updateAiConfig: async (cfg: { api_key: string; base_url: string; model: string }) => {
+    const resp = await fetch(`${API_BASE}/ai/config`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(cfg),
+    })
+    if (!resp.ok) {
+      const text = await resp.text()
+      let msg = `保存失败 (${resp.status})`
+      try {
+        msg = JSON.parse(text).error || msg
+      } catch {
+        /* 非 JSON 错误体，用默认文案 */
+      }
+      throw new Error(msg)
+    }
+    return resp.json() as Promise<{ api_key: string; base_url: string; model: string }>
+  },
+
   diagnoseStock: (code: string) =>
     request<{ content: string }>(`${API_BASE}/ai/diagnose/${code}`),
 

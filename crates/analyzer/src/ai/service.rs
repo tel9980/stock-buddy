@@ -9,25 +9,43 @@ use crate::ai::collector::{
 };
 use crate::ai::llm::LlmClient;
 use crate::ai::prompts;
-use std::sync::Arc;
+use std::sync::{Arc, RwLock};
 use tokio::sync::mpsc;
 
 /// AI 分析服务
+///
+/// LLM 客户端放在 RwLock 后面，支持运行期热替换配置（页面上改 key 后立即生效，
+/// 不必重启进程）。读多写少，RwLock 足够；克隆出 Arc 后在请求内使用。
 pub struct AiService {
-    llm: LlmClient,
+    llm: RwLock<Arc<LlmClient>>,
     collector: DataCollector,
 }
 
 impl AiService {
     pub fn new(llm: LlmClient, fetcher: Arc<dyn fetcher::DataFetcher>) -> Self {
         Self {
-            llm,
+            llm: RwLock::new(Arc::new(llm)),
             collector: DataCollector::new(fetcher),
         }
     }
 
+    /// 热替换 LLM 配置，后续请求立即使用新配置。
+    pub fn set_llm(&self, llm: LlmClient) {
+        if let Ok(mut w) = self.llm.write() {
+            *w = Arc::new(llm);
+        }
+    }
+
+    #[inline]
+    fn llm(&self) -> Arc<LlmClient> {
+        self.llm
+            .read()
+            .map(|g| Arc::clone(&g))
+            .unwrap_or_else(|_| Arc::new(LlmClient::from_env()))
+    }
+
     pub fn is_configured(&self) -> bool {
-        self.llm.is_configured()
+        self.llm().is_configured()
     }
 
     /// AI 个股诊断（完整响应）
@@ -47,7 +65,7 @@ impl AiService {
             &quote_json, &kline_summary, &indicators_json, &sr_json, &market_json,
         );
 
-        self.llm.chat(messages).await
+        self.llm().chat(messages).await
     }
 
     /// AI 个股诊断（流式响应）
@@ -70,7 +88,7 @@ impl AiService {
             &quote_json, &kline_summary, &indicators_json, &sr_json, &market_json,
         );
 
-        self.llm.chat_stream(messages).await
+        self.llm().chat_stream(messages).await
     }
 
     /// AI 市场研判
@@ -79,7 +97,7 @@ impl AiService {
         let market_json = format_market_json(&market);
         let sectors_json = format_sectors_json(&sectors);
         let messages = prompts::market_prompt(&market_json, &sectors_json);
-        self.llm.chat(messages).await
+        self.llm().chat(messages).await
     }
 
     /// AI 市场研判（流式）
@@ -90,7 +108,7 @@ impl AiService {
         let market_json = format_market_json(&market);
         let sectors_json = format_sectors_json(&sectors);
         let messages = prompts::market_prompt(&market_json, &sectors_json);
-        self.llm.chat_stream(messages).await
+        self.llm().chat_stream(messages).await
     }
 
     /// AI 趋势预测
@@ -106,7 +124,7 @@ impl AiService {
             &quote_json, &kline_summary, &indicators_json, &multi_period,
         );
 
-        self.llm.chat(messages).await
+        self.llm().chat(messages).await
     }
 
     /// AI 趋势预测（流式）
@@ -125,14 +143,14 @@ impl AiService {
             &quote_json, &kline_summary, &indicators_json, &multi_period,
         );
 
-        self.llm.chat_stream(messages).await
+        self.llm().chat_stream(messages).await
     }
 
     /// AI 智能问答
     pub async fn chat(&self, question: &str) -> anyhow::Result<String> {
         let context = self.build_chat_context(question).await;
         let messages = prompts::chat_prompt(question, &context);
-        self.llm.chat(messages).await
+        self.llm().chat(messages).await
     }
 
     /// AI 智能问答（流式）
@@ -142,7 +160,7 @@ impl AiService {
     ) -> anyhow::Result<mpsc::Receiver<Result<String, anyhow::Error>>> {
         let context = self.build_chat_context(question).await;
         let messages = prompts::chat_prompt(question, &context);
-        self.llm.chat_stream(messages).await
+        self.llm().chat_stream(messages).await
     }
 
     /// 根据问题内容智能构建上下文

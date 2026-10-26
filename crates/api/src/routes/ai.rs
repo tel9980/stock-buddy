@@ -18,6 +18,8 @@ use storage::Repository;
 pub fn router() -> Router<Arc<AppState>> {
     Router::new()
         .route("/api/v1/ai/status", get(ai_status))
+        // AI 配置（页面可编辑）
+        .route("/api/v1/ai/config", get(get_ai_config).put(put_ai_config))
         // 个股诊断
         .route("/api/v1/ai/diagnose/{code}", get(diagnose_stock))
         .route("/api/v1/ai/diagnose/{code}/stream", get(diagnose_stock_stream))
@@ -59,8 +61,41 @@ fn ai_error(status: StatusCode, msg: impl Into<String>) -> (StatusCode, Json<Err
 async fn ai_status(State(state): State<Arc<AppState>>) -> Json<AiStatus> {
     Json(AiStatus {
         configured: state.ai.is_configured(),
-        model: std::env::var("LLM_MODEL").unwrap_or_else(|_| "gpt-4o-mini".to_string()),
+        model: state.ai_config.get().model,
     })
+}
+
+/// GET /api/v1/ai/config - 读取当前 AI 配置（API Key 打码）
+async fn get_ai_config(State(state): State<Arc<AppState>>) -> Json<crate::ai_config::AiSettings> {
+    Json(state.ai_config.masked())
+}
+
+/// PUT /api/v1/ai/config - 保存 AI 配置，立即生效并落盘
+///
+/// 传 `api_key` 为掩码值（含 `****`）表示「不修改 key，仅改 url/model」。
+async fn put_ai_config(
+    State(state): State<Arc<AppState>>,
+    Json(mut body): Json<crate::ai_config::AiSettings>,
+) -> Result<Json<crate::ai_config::AiSettings>, (StatusCode, Json<ErrorResponse>)> {
+    // 打码回传时保留原 key，避免前端只改模型却把 key 清空
+    if body.api_key.contains("****") {
+        body.api_key = state.ai_config.get().api_key;
+    }
+    state
+        .ai_config
+        .save(body.clone())
+        .map_err(|e| ai_error(StatusCode::BAD_REQUEST, e))?;
+
+    // 热替换 LLM 客户端，后续请求立刻用新配置
+    state.ai.set_llm(analyzer::ai::LlmClient::new(analyzer::ai::LlmConfig {
+        api_key: body.api_key,
+        base_url: body.base_url,
+        model: body.model,
+        ..Default::default()
+    }));
+
+    tracing::info!("AI 配置已更新（页面保存），已热生效");
+    Ok(Json(state.ai_config.masked()))
 }
 
 #[derive(Serialize)]

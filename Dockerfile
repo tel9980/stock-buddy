@@ -59,7 +59,7 @@ server {
 EOF
 
 COPY <<'EOF' /app/entrypoint.sh
-#!/bin/sh
+#!/bin/bash
 set -e
 
 # 数据与日志目录
@@ -72,13 +72,17 @@ export DB_PATH=/app/data/stock.db
 export REPORT_DIR=/app/data/reports
 
 /app/stock-buddy &
-NGINX_PID=$!
-nginx -g "daemon off;" &
 API_PID=$!
+nginx -g "daemon off;" &
+NGINX_PID=$!
 
-trap 'kill $NGINX_PID $API_PID 2>/dev/null' TERM INT
-wait -n
-exit $?
+trap 'kill $API_PID $NGINX_PID 2>/dev/null' TERM INT
+
+# dash 不支持 wait -n，改用 bash + 轮询任一进程退出即退出
+while kill -0 $API_PID 2>/dev/null && kill -0 $NGINX_PID 2>/dev/null; do
+    sleep 5
+done
+exit 1
 EOF
 RUN chmod +x /app/entrypoint.sh
 

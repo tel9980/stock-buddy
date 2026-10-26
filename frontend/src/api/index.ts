@@ -1079,6 +1079,28 @@ export const api = {
     return resp.json() as Promise<{ api_key: string; base_url: string; model: string }>
   },
 
+  /**
+   * 拉取上游可用模型列表。
+   *
+   * 走我们自己的后端代理，而不是浏览器直连上游：上游多半没配 CORS、
+   * Base URL 可能是内网地址（浏览器未必能通而容器能通），且 key 不必下发到前端。
+   */
+  listAiModels: async (): Promise<string[]> => {
+    const resp = await fetch(`${API_BASE}/ai/models`)
+    const text = await resp.text()
+    if (!resp.ok) {
+      let msg = `拉取模型列表失败 (${resp.status})`
+      try {
+        msg = JSON.parse(text).error || msg
+      } catch {
+        /* 非 JSON 错误体，用默认文案 */
+      }
+      throw new Error(msg)
+    }
+    const data = JSON.parse(text) as { models?: string[] }
+    return data.models ?? []
+  },
+
   diagnoseStock: (code: string) =>
     request<{ content: string }>(`${API_BASE}/ai/diagnose/${code}`),
 

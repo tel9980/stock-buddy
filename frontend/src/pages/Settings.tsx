@@ -17,6 +17,9 @@ export default function Settings() {
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null)
   // 用户是否真的改过 key：不改就用打码值回传，后端会保留原 key
   const [keyTouched, setKeyTouched] = useState(false)
+  // 「拉取模型」得到的候选列表
+  const [models, setModels] = useState<string[]>([])
+  const [fetchingModels, setFetchingModels] = useState(false)
 
   const load = async () => {
     setLoading(true)
@@ -38,6 +41,27 @@ export default function Settings() {
   useEffect(() => {
     load()
   }, [])
+
+  /**
+   * 拉取上游模型列表。
+   *
+   * 注意：这一步只用后端**已保存**的 key/base_url —— 页面上刚填还没保存的
+   * 改动不会被带上，所以改过地址或 key 时要先「保存并生效」再拉取。
+   */
+  const fetchModels = async () => {
+    setFetchingModels(true)
+    setMsg(null)
+    try {
+      const list = await api.listAiModels()
+      setModels(list)
+      setMsg({ ok: true, text: `已拉取 ${list.length} 个模型，请在下方下拉框选择` })
+    } catch (e) {
+      setModels([])
+      setMsg({ ok: false, text: `拉取模型失败：${(e as Error).message}` })
+    } finally {
+      setFetchingModels(false)
+    }
+  }
 
   const save = async () => {
     setSaving(true)
@@ -128,12 +152,52 @@ export default function Settings() {
 
           <div>
             <label style={labelStyle}>模型</label>
-            <input
-              style={inputStyle}
-              value={model}
-              placeholder="gpt-4o-mini / deepseek-chat / moonshot-v1-8k"
-              onChange={(e) => setModel(e.target.value)}
-            />
+            <div style={{ display: 'flex', gap: 8 }}>
+              {models.length > 0 ? (
+                <select
+                  style={{ ...inputStyle, flex: 1 }}
+                  value={models.includes(model) ? model : ''}
+                  onChange={(e) => setModel(e.target.value)}
+                >
+                  <option value="">— 从已拉取的模型中选择 —</option>
+                  {models.map((m) => (
+                    <option key={m} value={m}>
+                      {m}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <input
+                  style={{ ...inputStyle, flex: 1 }}
+                  value={model}
+                  placeholder="gpt-4o-mini / deepseek-chat / moonshot-v1-8k"
+                  onChange={(e) => setModel(e.target.value)}
+                />
+              )}
+              <button
+                onClick={fetchModels}
+                disabled={fetchingModels || saving}
+                title="用已保存的 Base URL 与 Key 请求 /models，自动列出可用模型"
+                style={{
+                  padding: '8px 16px',
+                  borderRadius: 6,
+                  border: '1px solid var(--border, #d9d9d9)',
+                  background: 'transparent',
+                  color: 'inherit',
+                  fontSize: 14,
+                  whiteSpace: 'nowrap',
+                  cursor: fetchingModels ? 'not-allowed' : 'pointer',
+                  opacity: fetchingModels ? 0.6 : 1,
+                }}
+              >
+                {fetchingModels ? '拉取中…' : '拉取模型'}
+              </button>
+            </div>
+            <div style={{ fontSize: 12, opacity: 0.55, marginTop: 6 }}>
+              {models.length > 0
+                ? '已从上游拉到模型列表，可直接选择；手动输入也行。'
+                : '不确定模型名？点「拉取模型」自动列出（先用已保存的地址和 Key）。'}
+            </div>
           </div>
 
           <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>

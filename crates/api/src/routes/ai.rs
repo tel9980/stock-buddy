@@ -20,6 +20,8 @@ pub fn router() -> Router<Arc<AppState>> {
         .route("/api/v1/ai/status", get(ai_status))
         // AI 配置（页面可编辑）
         .route("/api/v1/ai/config", get(get_ai_config).put(put_ai_config))
+        // 拉取上游可用模型列表（设置页「拉取模型」按钮）
+        .route("/api/v1/ai/models", get(list_models))
         // 个股诊断
         .route("/api/v1/ai/diagnose/{code}", get(diagnose_stock))
         .route("/api/v1/ai/diagnose/{code}/stream", get(diagnose_stock_stream))
@@ -96,6 +98,111 @@ async fn put_ai_config(
 
     tracing::info!("AI 配置已更新（页面保存），已热生效");
     Ok(Json(state.ai_config.masked()))
+}
+
+#[derive(Serialize)]
+struct ModelListResponse {
+    /// 上游返回的模型 id 列表（已去重、升序）
+    models: Vec<String>,
+}
+
+/// GET /api/v1/ai/models - 代理拉取上游 `/models`，给设置页做下拉选择
+///
+/// 由后端代理而不是浏览器直连，原因有三：
+/// 1. 上游多半没配 CORS，浏览器直连会被拦；
+/// 2. Base URL 可能是内网地址，浏览器所在机器未必能通，容器内却能通；
+/// 3. API Key 不用下发到前端，避免在浏览器里被读到。
+///
+/// 支持 OpenAI 兼容的两种返回形态：`{"data":[{"id":...}]}` 与 `{"models":[...]}`；
+/// 部分网关用裸数组。取不到时返回 502 并说明原因，让用户知道该查什么。
+async fn list_models(
+    State(state): State<Arc<AppState>>,
+) -> Result<Json<ModelListResponse>, (StatusCode, Json<ErrorResponse>)> {
+    let cfg = state.ai_config.get();
+    if cfg.api_key.trim().is_empty() {
+        return Err(ai_error(
+            StatusCode::BAD_REQUEST,
+            "尚未配置 API Key，请先填写后再拉取模型列表",
+        ));
+    }
+
+    let url = format!("{}/models", cfg.base_url.trim_end_matches('/'));
+    // 模型列表接口要快，别用 LLM 那种 120s 超时
+    let client = reqwest::Client::builder()
+        .connect_timeout(std::time::Duration::from_secs(5))
+        .timeout(std::time::Duration::from_secs(20))
+        .build()
+        .map_err(|e| ai_error(StatusCode::INTERNAL_SERVER_ERROR, format!("HTTP 客户端创建失败: {e}")))?;
+
+    let resp = client
+        .get(&url)
+        .bearer_auth(cfg.api_key.trim())
+        .send()
+        .await
+        .map_err(|e| {
+            ai_error(
+                StatusCode::BAD_GATEWAY,
+                format!("无法连接 {url}：{e}（若为内网地址，请确认容器能访问该网段）"),
+            )
+        })?;
+
+    let status = resp.status();
+    let body = resp.text().await.unwrap_or_default();
+    if !status.is_success() {
+        // 上游原文可能很长（含 HTML 错误页），截断后再回传
+        let snippet: String = body.chars().take(300).collect();
+        return Err(ai_error(
+            StatusCode::BAD_GATEWAY,
+            format!("上游返回 {status}：{snippet}"),
+        ));
+    }
+
+    let models = parse_model_ids(&body).map_err(|e| {
+        ai_error(
+            StatusCode::BAD_GATEWAY,
+            format!("{e}；该服务可能不提供 /models 接口（例如同花顺金融数据 API 就没有）"),
+        )
+    })?;
+
+    if models.is_empty() {
+        return Err(ai_error(
+            StatusCode::BAD_GATEWAY,
+            "上游 /models 返回了但没有可用模型 id",
+        ));
+    }
+
+    tracing::info!(count = models.len(), "已拉取上游模型列表");
+    Ok(Json(ModelListResponse { models }))
+}
+
+/// 解析 `/models` 响应，兼容三种常见形态。
+fn parse_model_ids(body: &str) -> Result<Vec<String>, String> {
+    let v: serde_json::Value = serde_json::from_str(body)
+        .map_err(|e| format!("上游响应不是合法 JSON: {e}"))?;
+
+    let pick = |item: &serde_json::Value| -> Option<String> {
+        item.get("id")
+            .and_then(|x| x.as_str())
+            .or_else(|| item.get("name").and_then(|x| x.as_str()))
+            .or_else(|| item.as_str())
+            .map(|s| s.trim().to_string())
+            .filter(|s| !s.is_empty())
+    };
+
+    let arr = if let Some(a) = v.get("data").and_then(|d| d.as_array()) {
+        a.clone()
+    } else if let Some(a) = v.get("models").and_then(|m| m.as_array()) {
+        a.clone()
+    } else if let Some(a) = v.as_array() {
+        a.clone()
+    } else {
+        return Err("响应里没有 data/models 数组".to_string());
+    };
+
+    let mut ids: Vec<String> = arr.iter().filter_map(pick).collect();
+    ids.sort();
+    ids.dedup();
+    Ok(ids)
 }
 
 #[derive(Serialize)]
@@ -400,4 +507,44 @@ fn forward_stream_and_save(
     });
 
     ReceiverStream::new(sse_rx)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::parse_model_ids;
+
+    #[test]
+    fn parses_openai_shape() {
+        let body = r#"{"object":"list","data":[
+            {"id":"gpt-4o-mini","object":"model"},
+            {"id":"deepseek-chat","object":"model"}
+        ]}"#;
+        let ids = parse_model_ids(body).unwrap();
+        assert_eq!(ids, vec!["deepseek-chat", "gpt-4o-mini"]);
+    }
+
+    #[test]
+    fn parses_models_key_and_bare_array() {
+        let vllm = r#"{"models":[{"name":"qwen2.5-7b"}]}"#;
+        assert_eq!(parse_model_ids(vllm).unwrap(), vec!["qwen2.5-7b"]);
+
+        let bare = r#"["a-model","b-model"]"#;
+        assert_eq!(parse_model_ids(bare).unwrap(), vec!["a-model", "b-model"]);
+    }
+
+    #[test]
+    fn dedups_and_sorts() {
+        let body = r#"{"data":[{"id":"b"},{"id":"a"},{"id":"b"}]}"#;
+        assert_eq!(parse_model_ids(body).unwrap(), vec!["a", "b"]);
+    }
+
+    #[test]
+    fn reports_useful_errors() {
+        // 同花顺那类数据 API 回去的是错误信封，不是模型列表
+        let err = parse_model_ids(r#"{"code":404,"message":"Route not found"}"#).unwrap_err();
+        assert!(err.contains("data/models"));
+
+        let err = parse_model_ids("<html>not json</html>").unwrap_err();
+        assert!(err.contains("合法 JSON"));
+    }
 }

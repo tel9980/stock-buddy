@@ -104,6 +104,9 @@ mod tests {
                 Arc::new(fetcher::EastmoneyFetcher::new()),
             )),
             report_dir: PathBuf::from("data/reports"),
+            ai_config: Arc::new(crate::ai_config::AiConfigStore::load(
+                std::path::Path::new("data"),
+            )),
             in_flight: Mutex::new(HashMap::new()),
         }
     }

@@ -1452,6 +1452,7 @@ mod tests {
                 Arc::new(fetcher::EastmoneyFetcher::new()),
             ),
             std::path::PathBuf::from("data/reports"),
+            Arc::new(crate::ai_config::AiConfigStore::load(std::path::Path::new("data"))),
         );
 
         let old_first = "2026-09-01";

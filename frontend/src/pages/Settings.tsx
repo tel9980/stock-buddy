@@ -121,6 +121,10 @@ export default function Settings() {
   const [status, setStatus] = useState({ llm: false, mx: false, fuyao: false })
   const [engine, setEngine] = useState('none')
 
+  const [models, setModels] = useState<string[]>([])
+  const [loadingModels, setLoadingModels] = useState(false)
+  const [modelsErr, setModelsErr] = useState('')
+
   const [testing, setTesting] = useState<'' | 'llm' | 'mx' | 'fuyao'>('')
   const [testResult, setTestResult] = useState<Record<string, TestState>>({})
 
@@ -161,6 +165,22 @@ export default function Settings() {
       setMsg({ ok: false, text: `保存失败：${(e as Error).message}` })
     } finally {
       setSaving(false)
+    }
+  }
+
+  /** 拉取上游可用模型。用页面上**当前填写**的 key/base_url，不用先保存。 */
+  const loadModels = async () => {
+    setLoadingModels(true)
+    setModelsErr('')
+    try {
+      const list = await api.listAiModels({ api_key: llm.api_key, base_url: llm.base_url })
+      setModels(list)
+      if (list.length === 0) setModelsErr('上游没有返回任何模型')
+    } catch (e) {
+      setModelsErr((e as Error).message)
+      setModels([])
+    } finally {
+      setLoadingModels(false)
     }
   }
 
@@ -249,13 +269,50 @@ export default function Settings() {
           placeholder="https://api.openai.com/v1"
           hint="本地网关填到 /v1 为止，例如 http://192.168.2.22:2682/v1"
         />
-        <Field
-          label="模型"
-          value={llm.model}
-          onChange={(v) => setLlm({ ...llm, model: v })}
-          placeholder="gpt-4o-mini"
-          hint="填错模型名通常报 404。可用「测试连接」当场验证。"
-        />
+        <label className="mb-3 block">
+          <span className="mb-1 block text-xs font-medium text-slate-600 dark:text-slate-300">
+            模型
+          </span>
+          <div className="flex gap-2">
+            <input
+              type="text"
+              value={llm.model}
+              onChange={(e) => setLlm({ ...llm, model: e.target.value })}
+              placeholder="gpt-4o-mini"
+              className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
+            />
+            <button
+              type="button"
+              onClick={loadModels}
+              disabled={loadingModels}
+              className="shrink-0 rounded-lg border border-slate-300 px-3 py-2 text-xs text-slate-700 hover:bg-slate-50 disabled:opacity-50 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800"
+            >
+              {loadingModels ? '拉取中…' : '拉取模型'}
+            </button>
+          </div>
+          {models.length > 0 ? (
+            <div className="mt-2">
+              <select
+                value={models.includes(llm.model) ? llm.model : ''}
+                onChange={(e) => e.target.value && setLlm({ ...llm, model: e.target.value })}
+                className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
+              >
+                <option value="">从 {models.length} 个可用模型中选择…</option>
+                {models.map((m) => (
+                  <option key={m} value={m}>
+                    {m}
+                  </option>
+                ))}
+              </select>
+            </div>
+          ) : (
+            <span className="mt-1 block text-[11px] leading-relaxed text-slate-400">
+              {modelsErr
+                ? `拉取失败：${modelsErr}`
+                : '填错模型名通常报 404。可点「拉取模型」从上游列表里选。'}
+            </span>
+          )}
+        </label>
         <TestRow
           testing={testing === 'llm'}
           result={testResult.llm ?? null}

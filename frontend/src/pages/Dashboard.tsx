@@ -9,6 +9,20 @@ function formatNum(n: number): string {
   return n.toFixed(2);
 }
 
+/** 成交额：以「元」为单位进来，展示成亿/万 */
+function fmtAmount(yuan: number): string {
+  if (!yuan || yuan <= 0) return '—';
+  if (yuan >= 1e12) return (yuan / 1e12).toFixed(2) + ' 万亿';
+  if (yuan >= 1e8) return (yuan / 1e8).toFixed(0) + ' 亿';
+  if (yuan >= 1e4) return (yuan / 1e4).toFixed(0) + ' 万';
+  return yuan.toFixed(0);
+}
+
+/** 家数：0 通常意味着数据源没拿到，别显示成真的「0 家」 */
+function fmtCount(n: number | undefined): string {
+  return n && n > 0 ? String(n) : '—';
+}
+
 function pctClass(pct: number): string {
   return pct > 0 ? 'up' : pct < 0 ? 'down' : 'flat';
 }
@@ -79,6 +93,9 @@ export default function Dashboard() {
                 <div className={`pct ${pctClass(idx.pct_change)}`}>
                   {pctStr(idx.pct_change)} ({idx.change > 0 ? '+' : ''}{idx.change.toFixed(2)})
                 </div>
+                <div style={{ color: '#9090a8', fontSize: '0.78rem', marginTop: '2px' }}>
+                  成交 {fmtAmount(idx.amount)}
+                </div>
               </div>
             ))}
           </div>
@@ -89,21 +106,39 @@ export default function Dashboard() {
             <div style={{ display: 'flex', gap: '32px', flexWrap: 'wrap' }}>
               <div>
                 <span className="up" style={{ fontSize: '1.4rem', fontWeight: 700 }}>
-                  {marketOverview.up_count}
+                  {fmtCount(marketOverview.up_count)}
                 </span>
                 <span style={{ color: '#9090a8', marginLeft: '4px' }}>上涨</span>
               </div>
               <div>
                 <span className="down" style={{ fontSize: '1.4rem', fontWeight: 700 }}>
-                  {marketOverview.down_count}
+                  {fmtCount(marketOverview.down_count)}
                 </span>
                 <span style={{ color: '#9090a8', marginLeft: '4px' }}>下跌</span>
               </div>
               <div>
                 <span className="flat" style={{ fontSize: '1.4rem', fontWeight: 700 }}>
-                  {marketOverview.flat_count}
+                  {fmtCount(marketOverview.flat_count)}
                 </span>
                 <span style={{ color: '#9090a8', marginLeft: '4px' }}>平盘</span>
+              </div>
+              <div>
+                <span className="up" style={{ fontSize: '1.4rem', fontWeight: 700 }}>
+                  {fmtCount(marketOverview.limit_up_count)}
+                </span>
+                <span style={{ color: '#9090a8', marginLeft: '4px' }}>涨停</span>
+              </div>
+              <div>
+                <span className="down" style={{ fontSize: '1.4rem', fontWeight: 700 }}>
+                  {fmtCount(marketOverview.limit_down_count)}
+                </span>
+                <span style={{ color: '#9090a8', marginLeft: '4px' }}>跌停</span>
+              </div>
+              <div>
+                <span style={{ fontSize: '1.4rem', fontWeight: 700, color: '#e8804e' }}>
+                  {fmtAmount(marketOverview.total_amount)}
+                </span>
+                <span style={{ color: '#9090a8', marginLeft: '4px' }}>两市成交额</span>
               </div>
             </div>
           </div>
@@ -151,8 +186,8 @@ export default function Dashboard() {
                     <td className={s.leader_pct ? pctClass(s.leader_pct) : ''}>
                       {s.leader_pct ? pctStr(s.leader_pct) : '-'}
                     </td>
-                    <td className="up">{s.up_count ?? '-'}</td>
-                    <td className="down">{s.down_count ?? '-'}</td>
+                    <td className="up">{s.up_count ? s.up_count : '—'}</td>
+                    <td className="down">{s.down_count ? s.down_count : '—'}</td>
                     <td style={{ color: '#e8804e', fontSize: '0.85rem' }}>
                       {expandedSector === s.code ? '收起 ▲' : '查看成分股 ▼'}
                     </td>

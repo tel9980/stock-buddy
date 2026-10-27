@@ -1536,39 +1536,35 @@ impl DataFetcher for EastmoneyFetcher {
     }
 
     async fn fetch_market_overview(&self) -> AppResult<MarketOverview> {
-        // 获取三大指数: 上证指数(1.000001), 深证成指(0.399001), 创业板指(0.399006)
-        let index_codes = ["1.000001", "0.399001", "0.399006"];
-
-        let mut indices = Vec::with_capacity(3);
-        for secid in &index_codes {
-            let url = format!(
-                "{}/get?secid={}&fltt=2&fields=f43,f44,f45,f46,f47,f48,f57,f58,f169,f170",
-                EM_BASE, secid
-            );
-
-            let resp: EmResponse<EmQuoteData> = self
-                .client
-                .get(&url)
-                .send()
-                .await?
-                .json()
-                .await?;
-
-            if let Some(data) = resp.data {
-                indices.push(IndexSummary {
-                    code: data.code.clone(),
-                    name: data.name.clone(),
-                    price: data.price,
-                    pct_change: data.pct_change,
-                    change: data.change,
-                    volume: data.volume,
-                    amount: data.amount,
-                });
+        // 三大指数。东财 `stock/get` 在主源被风控时整块返回空，
+        // 所以先走东财、拿到空表就整体换腾讯（腾讯同时给出成交额，能算总成交）。
+        let mut indices = self.fetch_indices_em().await.unwrap_or_default();
+        if indices.is_empty() {
+            match self.fetch_indices_tencent().await {
+                Ok(v) if !v.is_empty() => {
+                    tracing::info!(count = v.len(), "指数走腾讯源");
+                    indices = v;
+                }
+                Ok(_) => tracing::warn!("腾讯指数源也返回空"),
+                Err(e) => tracing::warn!(error = %e, "腾讯指数源失败"),
             }
         }
 
-        // 获取涨跌家数 (通过沪深A股列表)
-        let (up, down, flat) = self.fetch_up_down_count().await.unwrap_or((0, 0, 0));
+        // 两市总成交额 = 上证 + 深证（创业板指已包含在深证内，不能再加）
+        let total_amount = indices
+            .iter()
+            .filter(|i| i.code == "000001" || i.code == "399001")
+            .map(|i| i.amount)
+            .sum::<f64>();
+
+        // 涨跌家数：走多节点，静默期会直接失败 → 保留 0 并在前端标注「—」
+        let (up, down, flat) = match self.fetch_up_down_count().await {
+            Ok(v) => v,
+            Err(e) => {
+                tracing::warn!(error = %e, "涨跌家数获取失败");
+                (0, 0, 0)
+            }
+        };
 
         Ok(MarketOverview {
             indices,
@@ -1577,10 +1573,12 @@ impl DataFetcher for EastmoneyFetcher {
             flat_count: flat,
             limit_up_count: 0,
             limit_down_count: 0,
-            total_amount: 0.0,
+            total_amount,
             timestamp: Self::now_ts(),
         })
     }
+
+
     // ============ Phase 4: 资金流向 ============
 
     async fn fetch_capital_flow(&self, code: &str, limit: Option<u32>) -> AppResult<Vec<CapitalFlow>> {
@@ -2436,6 +2434,93 @@ impl DataFetcher for EastmoneyFetcher {
 }
 
 impl EastmoneyFetcher {
+    /// 东财取三大指数（旧路径，保留为主源）
+    async fn fetch_indices_em(&self) -> AppResult<Vec<IndexSummary>> {
+        let index_codes = ["1.000001", "0.399001", "0.399006"];
+        let mut out = Vec::with_capacity(3);
+        for secid in &index_codes {
+            let url = format!(
+                "{}/get?secid={}&fltt=2&fields=f43,f44,f45,f46,f47,f48,f57,f58,f169,f170",
+                EM_BASE, secid
+            );
+            // 单个指数失败不该拖垮整块，用 continue 而非 `?`
+            let resp: EmResponse<EmQuoteData> = match self.client.get(&url).send().await {
+                Ok(r) => match r.json().await {
+                    Ok(v) => v,
+                    Err(e) => {
+                        tracing::debug!(secid = %secid, error = %e, "指数 JSON 解析失败");
+                        continue;
+                    }
+                },
+                Err(e) => {
+                    tracing::debug!(secid = %secid, error = %e, "指数请求失败");
+                    continue;
+                }
+            };
+            if let Some(data) = resp.data {
+                out.push(IndexSummary {
+                    code: data.code.clone(),
+                    name: data.name.clone(),
+                    price: data.price,
+                    pct_change: data.pct_change,
+                    change: data.change,
+                    volume: data.volume,
+                    amount: data.amount,
+                });
+            }
+        }
+        Ok(out)
+    }
+
+    /// 腾讯行情取三大指数。
+    ///
+    /// 返回 GBK 文本 `v_sh000001="1~上证指数~000001~3697.52~...~";`，
+    /// 字段位（实测）：1=名称 2=代码 3=最新 4=昨收 5=今开 31=涨跌额
+    /// 32=涨跌幅% 33=最高 34=最低 35=`价/量(手)/额(元)` 36=成交量(手)。
+    /// 成交额取 35 的第三段，与 37 字段（万元）交叉验证一致。
+    async fn fetch_indices_tencent(&self) -> AppResult<Vec<IndexSummary>> {
+        // 腾讯 secid 是 sh/sz/bj + 6 位代码，与东财的 `市场.代码` 不同
+        let pairs = [
+            ("sh000001", "000001"),
+            ("sz399001", "399001"),
+            ("sz399006", "399006"),
+        ];
+        let qs: Vec<&str> = pairs.iter().map(|(q, _)| *q).collect();
+        let url = format!("http://qt.gtimg.cn/q={}", qs.join(","));
+
+        let bytes = self.client.get(&url).send().await?.bytes().await?;
+        let text = decode_gbk(&bytes);
+
+        let mut out = Vec::with_capacity(3);
+        for (q, code) in pairs {
+            let Some(fields) = extract_tencent_fields(&text, q) else {
+                continue;
+            };
+            let num = |i: usize| -> f64 {
+                fields.get(i).and_then(|s| s.parse::<f64>().ok()).unwrap_or(0.0)
+            };
+            // fields[35] = "价/成交量(手)/成交额(元)"
+            let amount = fields
+                .get(35)
+                .and_then(|s| s.split('/').nth(2))
+                .and_then(|s| s.parse::<f64>().ok())
+                .unwrap_or(0.0);
+            // 腾讯的成交量单位是「手」，换算成股（1 手 = 100 股）与东财口径对齐
+            let volume = num(36) * 100.0;
+
+            out.push(IndexSummary {
+                code: code.to_string(),
+                name: fields.get(1).map(|s| s.to_string()).unwrap_or_default(),
+                price: num(3),
+                pct_change: num(32),
+                change: num(31),
+                volume,
+                amount,
+            });
+        }
+        Ok(out)
+    }
+
     /// 获取沪深A股涨跌家数
     async fn fetch_up_down_count(&self) -> AppResult<(u32, u32, u32)> {
         // 涨幅榜的沪/深分页 URL 早年写过但从未被使用（涨跌家数改走下面的总览接口），
@@ -2488,9 +2573,72 @@ fn dedup_by_code(rows: Vec<(String, String, String)>) -> Vec<(String, String, St
         .collect()
 }
 
+
+/// 把响应字节按 GBK 解码。
+///
+/// 腾讯/新浪的行情接口都是 GBK，用 `resp.text()` 会因缺 charset 头而按 UTF-8
+/// 解出乱码，所以必须显式按字节解。
+fn decode_gbk(bytes: &[u8]) -> String {
+    let (cow, _, had_errors) = encoding_rs::GBK.decode(bytes);
+    if had_errors {
+        tracing::debug!("GBK 解码出现替换字符，上游可能已返回 UTF-8");
+    }
+    cow.into_owned()
+}
+
+/// 从腾讯行情文本里抠出某个 secid 的字段数组。
+///
+/// 形如 `v_sh000001="1~上证指数~...";`，可能有多个、可能带换行。
+fn extract_tencent_fields<'a>(text: &'a str, secid: &str) -> Option<Vec<&'a str>> {
+    let marker = format!("v_{secid}=\"");
+    let start = text.find(&marker)? + marker.len();
+    let rest = &text[start..];
+    let end = rest.find("\";").or_else(|| rest.find('"'))?;
+    Some(rest[..end].split('~').collect())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn parses_tencent_index_line() {
+        // 真实响应片段（2026-10-26 收盘）
+        let text = r#"v_sh000001="1~上证指数~000001~3697.52~3690.48~3671.00~432794318~0~0~0.00~0~0.00~0~0.00~0~0.00~0~0.00~0~0.00~0~0.00~0~0.00~0~0.00~0~0.00~0~~20261026161400~7.04~0.19~3699.01~3664.82~3697.52/432794318/746528025716~432794318~74652803~0.89~16.07~~3699.01~3664.82~0.93~579327.61~647365.80~0.00~-1~-1~0.99~0~3680.41~~~~~~74652802.5716~0.0000~0~ ~ZS~-6.84~-0.90~~~~4258.86~3574.27~-2.63~-5.48~-3.06~48574";"#;
+        let f = extract_tencent_fields(text, "sh000001").expect("应能抠出字段");
+        assert_eq!(f[1], "上证指数");
+        assert_eq!(f[2], "000001");
+        assert!((f[3].parse::<f64>().unwrap() - 3697.52).abs() < 1e-6);
+        // 32 = 涨跌幅、31 = 涨跌额
+        assert!((f[32].parse::<f64>().unwrap() - 0.19).abs() < 1e-6);
+        assert!((f[31].parse::<f64>().unwrap() - 7.04).abs() < 1e-6);
+        // 35 的第三段是成交额（元）≈ 7465 亿
+        let amt: f64 = f[35].split('/').nth(2).unwrap().parse().unwrap();
+        assert!((amt / 1e8 - 7465.28).abs() < 0.5, "成交额换算成亿应约 7465");
+    }
+
+    #[test]
+    fn extracts_second_symbol_from_multi_line_payload() {
+        let text = "v_sh000001=\"1~上证指数~000001~3697.52\";\nv_sz399001=\"51~深证成指~399001~11534.38\";\n";
+        let a = extract_tencent_fields(text, "sh000001").unwrap();
+        assert_eq!(a[1], "上证指数");
+        let b = extract_tencent_fields(text, "sz399001").unwrap();
+        assert_eq!(b[1], "深证成指");
+    }
+
+    #[test]
+    fn missing_symbol_returns_none() {
+        let text = "v_sh000001=\"1~上证指数~000001\";\n";
+        assert!(extract_tencent_fields(text, "sz399006").is_none());
+    }
+
+    #[test]
+    fn gbk_bytes_decoded_to_chinese() {
+        let (bytes, _, _) = encoding_rs::GBK.encode("v_sh000001=\"1~上证指数\";");
+        let s = decode_gbk(&bytes);
+        assert!(s.contains("上证指数"));
+    }
+
 
     #[test]
     fn test_parse_sina_kline_field_order_and_volume_unit() {

@@ -21,7 +21,7 @@ pub fn router() -> Router<Arc<AppState>> {
         // AI 配置（页面可编辑）
         .route("/api/v1/ai/config", get(get_ai_config).put(put_ai_config))
         // 拉取上游可用模型列表（设置页「拉取模型」按钮）
-        .route("/api/v1/ai/models", get(list_models))
+        .route("/api/v1/ai/models", get(list_models).post(list_models))
         // 个股诊断
         .route("/api/v1/ai/diagnose/{code}", get(diagnose_stock))
         .route("/api/v1/ai/diagnose/{code}/stream", get(diagnose_stock_stream))
@@ -120,6 +120,15 @@ async fn put_ai_config(
     Ok(Json(state.ai_config.masked()))
 }
 
+/// `/ai/models` 的可选请求体：允许用页面上未保存的值试探
+#[derive(Deserialize, Default)]
+struct ModelListRequest {
+    #[serde(default)]
+    api_key: String,
+    #[serde(default)]
+    base_url: String,
+}
+
 #[derive(Serialize)]
 struct ModelListResponse {
     /// 上游返回的模型 id 列表（已去重、升序）
@@ -137,16 +146,37 @@ struct ModelListResponse {
 /// 部分网关用裸数组。取不到时返回 502 并说明原因，让用户知道该查什么。
 async fn list_models(
     State(state): State<Arc<AppState>>,
+    body: Option<Json<ModelListRequest>>,
 ) -> Result<Json<ModelListResponse>, (StatusCode, Json<ErrorResponse>)> {
-    let cfg = state.ai_config.get();
-    if cfg.api_key.trim().is_empty() {
+    let saved = state.ai_config.get();
+    let req = body.map(|Json(b)| b).unwrap_or_default();
+
+    // 页面可以带上「当前正在编辑、尚未保存」的 key/base_url。
+    // 否则用户刚把地址改成本地网关、还没点保存就来拉模型，只会看到旧的
+    // api.openai.com 在报错 —— 这是个很容易踩的坑，所以允许显式覆盖。
+    let pick = |incoming: &str, fallback: &str| -> String {
+        let t = incoming.trim();
+        if t.is_empty() || t.contains("****") {
+            fallback.to_string()
+        } else {
+            t.to_string()
+        }
+    };
+    let api_key = pick(&req.api_key, &saved.api_key);
+    let base_url = if req.base_url.trim().is_empty() {
+        saved.base_url.clone()
+    } else {
+        req.base_url.clone()
+    };
+
+    if api_key.trim().is_empty() {
         return Err(ai_error(
             StatusCode::BAD_REQUEST,
             "尚未配置 API Key，请先填写后再拉取模型列表",
         ));
     }
 
-    let url = format!("{}/models", cfg.base_url.trim_end_matches('/'));
+    let url = format!("{}/models", base_url.trim_end_matches('/'));
     // 模型列表接口要快，别用 LLM 那种 120s 超时
     let client = reqwest::Client::builder()
         .connect_timeout(std::time::Duration::from_secs(5))
@@ -156,7 +186,7 @@ async fn list_models(
 
     let resp = client
         .get(&url)
-        .bearer_auth(cfg.api_key.trim())
+        .bearer_auth(api_key.trim())
         .send()
         .await
         .map_err(|e| {

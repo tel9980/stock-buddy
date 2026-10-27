@@ -1113,8 +1113,12 @@ export const api = {
    * 走我们自己的后端代理，而不是浏览器直连上游：上游多半没配 CORS、
    * Base URL 可能是内网地址（浏览器未必能通而容器能通），且 key 不必下发到前端。
    */
-  listAiModels: async (): Promise<string[]> => {
-    const resp = await fetch(`${API_BASE}/ai/models`)
+  listAiModels: async (override?: { api_key?: string; base_url?: string }): Promise<string[]> => {
+    const resp = await fetch(`${API_BASE}/ai/models`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(override ?? {}),
+    })
     const text = await resp.text()
     if (!resp.ok) {
       let msg = `拉取模型列表失败 (${resp.status})`

@@ -1539,7 +1539,10 @@ impl DataFetcher for EastmoneyFetcher {
         // 三大指数。东财 `stock/get` 在主源被风控时整块返回空，
         // 所以先走东财、拿到空表就整体换腾讯（腾讯同时给出成交额，能算总成交）。
         let mut indices = self.fetch_indices_em().await.unwrap_or_default();
-        if indices.is_empty() {
+        // 只有东财真的给不出数据时才换腾讯：腾讯没有成交量/成交额，回落过去
+        // 会让大盘页的成交额整块变成 0。所以判据是「空表」或「成交额全是 0」。
+        let em_usable = !indices.is_empty() && indices.iter().any(|i| i.amount > 0.0);
+        if !em_usable {
             match self.fetch_indices_tencent().await {
                 Ok(v) if !v.is_empty() => {
                     tracing::info!(count = v.len(), "指数走腾讯源");
@@ -1566,13 +1569,23 @@ impl DataFetcher for EastmoneyFetcher {
             }
         };
 
+        // 涨停/跌停家数：东财涨停池按当日全部涨停股计数，取不到就保留 0
+        // （前端把 0 显示成「—」，避免把「没取到」误报成「今天没有涨停」）。
+        let (limit_up_count, limit_down_count) = match self.fetch_limit_stats().await {
+            Ok(v) => v,
+            Err(e) => {
+                tracing::debug!(error = %e, "涨停/跌停家数获取失败");
+                (0, 0)
+            }
+        };
+
         Ok(MarketOverview {
             indices,
             up_count: up,
             down_count: down,
             flat_count: flat,
-            limit_up_count: 0,
-            limit_down_count: 0,
+            limit_up_count,
+            limit_down_count,
             total_amount,
             timestamp: Self::now_ts(),
         })
@@ -2521,43 +2534,105 @@ impl EastmoneyFetcher {
         Ok(out)
     }
 
+    /// 当日涨停 / 跌停家数。
+    ///
+    /// 走 `push2ex` 的涨停池 / 跌停池（`data.tc` 就是当日总数）。
+    /// 注意两点：
+    /// - 盘中早盘可能确实是 0 家（还没股票封板），这是真实值不是故障；
+    /// - 该接口**要求显式传 `date`**，不传会返回空，所以按北京时间取当天。
+    async fn fetch_limit_stats(&self) -> AppResult<(u32, u32)> {
+        let date = crate::clock::today().format("%Y%m%d").to_string();
+
+        #[derive(Deserialize)]
+        struct PoolResp {
+            data: Option<PoolData>,
+        }
+        #[derive(Deserialize)]
+        struct PoolData {
+            #[serde(rename = "tc", default)]
+            total: Option<u32>,
+        }
+
+        let fetch = |kind: &str| {
+            let url = format!(
+                "https://push2ex.eastmoney.com/getTopic{kind}Pool?ut=7eea3edcaed734bea9cbfc24409ed989&dpt=wz.ztzt&Pageindex=0&pagesize=1&sort=fbt%3Aasc&date={date}"
+            );
+            let client = &self.client;
+            async move {
+                let resp = client.get(&url).send().await?;
+                let body = resp.text().await?;
+                let parsed: PoolResp = serde_json::from_str(&body)?;
+                Ok::<u32, AppError>(parsed.data.and_then(|d| d.total).unwrap_or(0))
+            }
+        };
+
+        let up = fetch("ZT").await.unwrap_or(0);
+        let down = fetch("DT").await.unwrap_or(0);
+        Ok((up, down))
+    }
+
     /// 获取沪深A股涨跌家数
     async fn fetch_up_down_count(&self) -> AppResult<(u32, u32, u32)> {
-        // 涨幅榜的沪/深分页 URL 早年写过但从未被使用（涨跌家数改走下面的总览接口），
+        // 涨幅榜的沪/深分页 URL 早年写过但从未被使用（涨跌家数走下面的总览接口），
         // 这里不再保留死代码，避免 url 变量名让读者以为还有第二路数据源。
-        let overview_path = "/api/qt/ulist.np/get?                             fields=f1,f2,f3,f4,f6,f12,f13,f104,f105,f106&secids=1.000001,0.399001";
-
-        #[derive(Deserialize)]
-        struct OverviewResp {
-            data: Option<OverviewData>,
-        }
-        #[derive(Deserialize)]
-        struct OverviewData {
-            diff: Option<Vec<OverviewItem>>,
-        }
-        #[derive(Deserialize)]
-        struct OverviewItem {
-            #[serde(rename = "f104", default)]
-            up_count: u32,
-            #[serde(rename = "f105", default)]
-            down_count: u32,
-            #[serde(rename = "f106", default)]
-            flat_count: u32,
-        }
+        //
+        // ⚠️ 切勿在此处用续行空白对齐参数：`datacenter_text` 会把连续空白压成单个
+        // 空格，东财会把 `? fields=...` 里的空格当成字段名的一部分，于是 f104/f105
+        // 整个失效，反序列化时被 `#[serde(default)]` 静默填 0——表现为「涨跌家数
+        // 恒为 0 且没有任何报错」，极难排查。参数一律紧贴 `?`。
+        let overview_path = "/api/qt/ulist.np/get?fltt=2&fields=f1,f2,f3,f4,f6,f12,f13,f104,f105,f106&secids=1.000001,0.399001";
 
         let body = crate::push2::get_text_any_node(&self.client, overview_path).await?;
-        let resp: OverviewResp = serde_json::from_str(&body)?;
 
-        if let Some(data) = resp.data {
-            if let Some(diff) = data.diff {
-                let (up, down, flat) = diff.iter().fold((0u32, 0u32, 0u32), |acc, item| {
-                    (acc.0 + item.up_count, acc.1 + item.down_count, acc.2 + item.flat_count)
-                });
-                return Ok((up, down, flat));
-            }
+        // 字段用 Option 接：东财在 `fields` 参数被弄坏时会回一个「什么都对、就是
+        // 少了这些字段」的正常响应。用 `default` 会静默变成 0，让人以为「今天全是
+        // 平盘」；这里改成显式判空并报错，宁可让调用方看到「取不到」。
+        #[derive(Deserialize)]
+        struct LooseItem {
+            #[serde(rename = "f104")]
+            up: Option<u32>,
+            #[serde(rename = "f105")]
+            down: Option<u32>,
+            #[serde(rename = "f106")]
+            flat: Option<u32>,
+        }
+        #[derive(Deserialize)]
+        struct LooseResp {
+            data: Option<LooseData>,
+        }
+        #[derive(Deserialize)]
+        struct LooseData {
+            diff: Option<Vec<LooseItem>>,
         }
 
-        Ok((0, 0, 0))
+        let loose: LooseResp = serde_json::from_str(&body)?;
+        let diff = loose
+            .data
+            .and_then(|d| d.diff)
+            .ok_or_else(|| AppError::Parse("涨跌家数响应缺少 data.diff".into()))?;
+        if diff.is_empty() {
+            return Err(AppError::Parse("涨跌家数响应 diff 为空".into()));
+        }
+
+        let mut up = 0u32;
+        let mut down = 0u32;
+        let mut flat = 0u32;
+        for item in &diff {
+            match (item.up, item.down, item.flat) {
+                (Some(u), Some(d), Some(f)) => {
+                    up += u;
+                    down += d;
+                    flat += f;
+                }
+                // 任一字段缺失都说明上游没按约定返回，不要用 0 冒充真实数据
+                _ => {
+                    return Err(AppError::Parse(
+                        "涨跌家数响应缺少 f104/f105/f106 字段（fields 参数可能被上游忽略）".into(),
+                    ))
+                }
+            }
+        }
+        Ok((up, down, flat))
     }
 }
 
